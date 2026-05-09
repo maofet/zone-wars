@@ -13,15 +13,19 @@ export const PLAYER = {
 };
 
 // Score is stored internally in tenths so we can do integer math.
-// zoneScoreTenths    = 1  means +0.1 displayed per tick.
-// pushHitTenths      = 10 means +1.0 displayed per successful push.
-// minePenaltyTenths  = 10 means -1.0 displayed per mine hit (clamped at 0).
+// zoneScoreTenths              = 1  means +0.1 displayed per tick.
+// pushHitTenthsBase            = 10 means +1.0 base reward per successful push.
+// pushHitTenthsPerMinute       = 10 means +1.0 added per elapsed match-minute.
+// minePenaltyTenthsBase        = 10 means -1.0 base penalty per mine hit.
+// minePenaltyTenthsPerMinute   = 5  means -0.5 added per elapsed match-minute.
 export const SCORING = {
   tickInterval: 1.0,
   defaultTarget: 100,
   zoneScoreTenths: 1,
-  pushHitTenths: 10,
-  minePenaltyTenths: 10,
+  pushHitTenthsBase: 10,
+  pushHitTenthsPerMinute: 10,
+  minePenaltyTenthsBase: 10,
+  minePenaltyTenthsPerMinute: 5,
 };
 
 // Seconds a player can stay in the opponent's zone before being teleported back to their own zone.
@@ -32,7 +36,9 @@ export const MINE = {
   perSpawn: 2,
   maxOnMap: 20,
   radius: 8,
-  triggerDistance: 30, // player center within this many px triggers explosion
+  triggerDistance: 30,   // player center within this many px triggers explosion
+  lifetime: 30.0,        // seconds before a mine auto-detonates
+  explosionRadius: 75,   // 2 cm at ~96 DPI - chains other mines and damages nearby players
 };
 
 // Score below this (in tenths) makes the player lose. -100 = -10.0 displayed.

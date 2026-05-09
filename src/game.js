@@ -44,6 +44,7 @@ export class Game {
 
     this.state = STATE.MENU;
     this.scoreAccumulator = 0;
+    this.matchTime = 0;
     this.countdownRemaining = COUNTDOWN_SECONDS;
     this.lastCountdownInt = COUNTDOWN_SECONDS + 1;
     this.winner = null;
@@ -80,10 +81,23 @@ export class Game {
     this.powerUps = [];
     this.powerUpSpawnTimer = 0;
     this.scoreAccumulator = 0;
+    this.matchTime = 0;
     this.countdownRemaining = COUNTDOWN_SECONDS;
     this.lastCountdownInt = COUNTDOWN_SECONDS + 1;
     this.winner = null;
     this.state = STATE.COUNTDOWN;
+  }
+
+  _minuteIndex() {
+    return Math.floor(this.matchTime / 60);
+  }
+
+  _currentPushBonus() {
+    return SCORING.pushHitTenthsBase + this._minuteIndex() * SCORING.pushHitTenthsPerMinute;
+  }
+
+  _currentMinePenalty() {
+    return SCORING.minePenaltyTenthsBase + this._minuteIndex() * SCORING.minePenaltyTenthsPerMinute;
   }
 
   _generateRandomBoxes() {
@@ -201,6 +215,8 @@ export class Game {
 
     this._checkZoneEjection(dt);
 
+    this.matchTime += dt;
+
     this._checkWin();
   }
 
@@ -268,7 +284,7 @@ export class Game {
 
     target.freezeTimer = PLAYER.freezeDuration;
     this.audio.pushImpact();
-    attacker.score += SCORING.pushHitTenths;
+    attacker.score += this._currentPushBonus();
 
     if (attacker.teleportPunchReady) {
       attacker.teleportPunchReady = false;
@@ -320,6 +336,16 @@ export class Game {
   }
 
   _tickMines(dt) {
+    // age existing mines; auto-detonate at lifetime
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      this.mines[i].age = (this.mines[i].age || 0) + dt;
+      if (this.mines[i].age >= MINE.lifetime) {
+        const m = this.mines[i];
+        this.mines.splice(i, 1);
+        this._processMineExplosion(m);
+      }
+    }
+    // spawn new mines
     this.mineSpawnTimer += dt;
     if (this.mineSpawnTimer >= MINE.spawnInterval) {
       this.mineSpawnTimer -= MINE.spawnInterval;
@@ -327,7 +353,7 @@ export class Game {
       const toSpawn = Math.min(MINE.perSpawn, slots);
       for (let i = 0; i < toSpawn; i++) {
         const pos = this._findOpenPosition(MINE.radius, 60, true);
-        if (pos) this.mines.push({ x: pos.x, y: pos.y });
+        if (pos) this.mines.push({ x: pos.x, y: pos.y, age: 0 });
       }
     }
   }
@@ -335,20 +361,48 @@ export class Game {
   _checkMineCollisions() {
     for (let i = this.mines.length - 1; i >= 0; i--) {
       const m = this.mines[i];
+      let triggered = false;
       for (const p of [this.p1, this.p2]) {
         if (p.shieldTimer > 0) continue;
         const d = Math.hypot(p.x - m.x, p.y - m.y);
         if (d < MINE.triggerDistance) {
-          this._applyMine(p, m);
-          this.mines.splice(i, 1);
+          triggered = true;
           break;
         }
+      }
+      if (triggered) {
+        this.mines.splice(i, 1);
+        this._processMineExplosion(m);
       }
     }
   }
 
-  _applyMine(player, mine) {
-    player.score -= SCORING.minePenaltyTenths;
+  _processMineExplosion(mine) {
+    this.audio.pushImpact();
+    this.renderer.spawnPushParticles(mine.x, mine.y, '#ff6040');
+    // Damage players in explosion radius
+    for (const p of [this.p1, this.p2]) {
+      if (p.shieldTimer > 0) continue;
+      const d = Math.hypot(p.x - mine.x, p.y - mine.y);
+      if (d < MINE.explosionRadius) {
+        this._applyMineEffects(p, mine);
+      }
+    }
+    // Chain reaction: detonate other mines within explosion radius
+    const chained = [];
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const om = this.mines[i];
+      const d = Math.hypot(om.x - mine.x, om.y - mine.y);
+      if (d < MINE.explosionRadius) {
+        chained.push(om);
+        this.mines.splice(i, 1);
+      }
+    }
+    for (const cm of chained) this._processMineExplosion(cm);
+  }
+
+  _applyMineEffects(player, mine) {
+    player.score -= this._currentMinePenalty();
     player.freezeTimer = PLAYER.freezeDuration;
     player.cooldownTimer = PLAYER.pushCooldown;
     const dx = player.x - mine.x;
@@ -362,8 +416,6 @@ export class Game {
       toY: player.y + dirY * PLAYER.pushDistance,
       elapsed: 0, duration: PLAYER.pushSlideDuration,
     };
-    this.audio.pushImpact();
-    this.renderer.spawnPushParticles(mine.x, mine.y, '#ff6040');
   }
 
   _tickPowerUps(dt) {
@@ -477,7 +529,10 @@ export class Game {
     this.renderer.drawPlayer(this.p1);
     this.renderer.drawPlayer(this.p2);
     this.renderer.drawParticles();
-    this.renderer.drawHUD(this.p1, this.p2, this.ui.settings.targetScore);
+    this.renderer.drawHUD(
+      this.p1, this.p2, this.ui.settings.targetScore,
+      this.matchTime, this._currentPushBonus(), this._currentMinePenalty(),
+    );
 
     if (this.state === STATE.COUNTDOWN) {
       const n = Math.ceil(this.countdownRemaining);

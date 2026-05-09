@@ -224,7 +224,7 @@ export class Renderer {
     }
   }
 
-  drawHUD(p1, p2, target) {
+  drawHUD(p1, p2, target, matchTime = 0, pushBonusTenths = 10, minePenaltyTenths = 10) {
     const ctx = this.ctx;
     ctx.save();
     ctx.fillStyle = COLORS.textBright;
@@ -239,6 +239,13 @@ export class Renderer {
     ctx.fillStyle = COLORS.textDim;
     ctx.font = '14px system-ui, sans-serif';
     ctx.fillText(`first to ${target}`, CANVAS.width / 2, 56);
+    const min = Math.floor(matchTime / 60);
+    const sec = Math.floor(matchTime % 60);
+    const timer = `${min}:${String(sec).padStart(2, '0')}`;
+    const push = (pushBonusTenths / 10).toFixed(1);
+    const mine = (minePenaltyTenths / 10).toFixed(1);
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText(`${timer}   push +${push}   mine -${mine}`, CANVAS.width / 2, 74);
     ctx.restore();
   }
 
