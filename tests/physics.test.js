@@ -77,3 +77,25 @@ test('resolveCircleVsBoxes: stops circle moving into box from bottom', () => {
   assert.ok(result.y >= 140 + 18 - 0.01);
   assert.equal(result.x, 120);
 });
+
+import { resolveCircleVsCircle } from '../src/physics.js';
+
+test('resolveCircleVsCircle: pushes mover out when overlap occurs after move', () => {
+  const other = { x: 100, y: 100 };
+  const result = resolveCircleVsCircle({ x: 50, y: 100 }, { x: 80, y: 100 }, 18, other, 18);
+  const dx = result.x - other.x;
+  const dy = result.y - other.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  assert.ok(dist >= 36 - 0.01, `expected dist >= 36, got ${dist}`);
+});
+
+test('resolveCircleVsCircle: leaves mover unchanged when no overlap', () => {
+  const result = resolveCircleVsCircle(
+    { x: 50, y: 100 },
+    { x: 60, y: 100 },
+    18,
+    { x: 200, y: 200 },
+    18,
+  );
+  assert.deepEqual(result, { x: 60, y: 100 });
+});

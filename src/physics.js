@@ -31,3 +31,19 @@ export function resolveCircleVsBoxes(oldPos, newPos, radius, boxes) {
   }
   return { x, y: finalY };
 }
+
+export function resolveCircleVsCircle(oldPos, newPos, r1, otherPos, r2) {
+  const dx = newPos.x - otherPos.x;
+  const dy = newPos.y - otherPos.y;
+  const dist = Math.hypot(dx, dy);
+  const minDist = r1 + r2;
+  if (dist >= minDist) return { x: newPos.x, y: newPos.y };
+  if (dist === 0) {
+    return { x: otherPos.x + minDist, y: otherPos.y };
+  }
+  const overlap = minDist - dist;
+  return {
+    x: newPos.x + (dx / dist) * overlap,
+    y: newPos.y + (dy / dist) * overlap,
+  };
+}
