@@ -15,6 +15,9 @@ export class Player {
     this.cooldownTimer = 0;
     this.pushSlide = null; // {fromX, fromY, toX, toY, elapsed, duration}
     this.opponentZoneTimer = 0; // seconds the player has been inside opponent's zone
+    this.shieldTimer = 0; // seconds remaining of shield power-up
+    this.speedTimer = 0; // seconds remaining of speed power-up (2x movement)
+    this.teleportPunchReady = false; // single-use: next push teleports target to their own zone
   }
 
   isFrozen() {
@@ -35,5 +38,8 @@ export class Player {
     this.cooldownTimer = 0;
     this.pushSlide = null;
     this.opponentZoneTimer = 0;
+    this.shieldTimer = 0;
+    this.speedTimer = 0;
+    this.teleportPunchReady = false;
   }
 }

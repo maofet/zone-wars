@@ -95,6 +95,93 @@ export class Renderer {
       ctx.stroke();
       ctx.restore();
     }
+
+    // shield indicator: cyan ring
+    if (player.shieldTimer > 0) {
+      ctx.save();
+      ctx.shadowColor = '#40e0ff';
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = '#40e0ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // speed indicator: yellow halo
+    if (player.speedTimer > 0) {
+      ctx.save();
+      ctx.shadowColor = '#ffd040';
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = '#ffd040';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // teleport-ready indicator: dashed magenta ring
+    if (player.teleportPunchReady) {
+      ctx.save();
+      ctx.shadowColor = '#d040ff';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#d040ff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  drawMine(mine) {
+    const ctx = this.ctx;
+    const t = performance.now() / 100;
+    const pulse = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t));
+    ctx.save();
+    ctx.shadowColor = '#ff4040';
+    ctx.shadowBlur = 10 + 6 * pulse;
+    ctx.fillStyle = '#ff3030';
+    ctx.beginPath();
+    ctx.arc(mine.x, mine.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = '#1a0608';
+    ctx.beginPath();
+    ctx.arc(mine.x, mine.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawPowerUp(pu) {
+    const ctx = this.ctx;
+    const t = performance.now() / 200;
+    const bob = Math.sin(t) * 3;
+    const styles = {
+      shield:   { fill: '#40e0ff', glow: '#80f0ff', label: 'S' },
+      speed:    { fill: '#ffd040', glow: '#ffe080', label: '→' }, // right arrow
+      teleport: { fill: '#d040ff', glow: '#e080ff', label: 'T' },
+    };
+    const s = styles[pu.type] || styles.shield;
+    ctx.save();
+    ctx.shadowColor = s.glow;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = s.fill;
+    ctx.beginPath();
+    ctx.arc(pu.x, pu.y + bob, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.fillStyle = '#0a0a18';
+    ctx.font = 'bold 16px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s.label, pu.x, pu.y + bob);
+    ctx.restore();
   }
 
   spawnPushParticles(x, y, color) {

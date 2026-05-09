@@ -1,5 +1,6 @@
 import {
-  CANVAS, ZONES, BOXES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
+  CANVAS, ZONES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
+  MINE, POWERUP, RANDOM_BOXES,
 } from './config.js';
 import { Player } from './entities/player.js';
 import { Box } from './entities/box.js';
@@ -28,13 +29,18 @@ export class Game {
     this.audio = audio;
     this.input = input;
 
-    this.boxes = BOXES.map(b => new Box(b));
     this.zones = {
       red: new Zone(ZONES.red, 'red'),
       blue: new Zone(ZONES.blue, 'blue'),
     };
     this.p1 = new Player('red', ZONES.red.color, ZONES.red.glow, STARTS.p1);
     this.p2 = new Player('blue', ZONES.blue.color, ZONES.blue.glow, STARTS.p2);
+    this.boxes = this._generateRandomBoxes();
+
+    this.mines = [];
+    this.mineSpawnTimer = 0;
+    this.powerUps = [];
+    this.powerUpSpawnTimer = 0;
 
     this.state = STATE.MENU;
     this.scoreAccumulator = 0;
@@ -68,11 +74,45 @@ export class Game {
     this.audio.init();
     this.p1.reset(STARTS.p1);
     this.p2.reset(STARTS.p2);
+    this.boxes = this._generateRandomBoxes();
+    this.mines = [];
+    this.mineSpawnTimer = 0;
+    this.powerUps = [];
+    this.powerUpSpawnTimer = 0;
     this.scoreAccumulator = 0;
     this.countdownRemaining = COUNTDOWN_SECONDS;
     this.lastCountdownInt = COUNTDOWN_SECONDS + 1;
     this.winner = null;
     this.state = STATE.COUNTDOWN;
+  }
+
+  _generateRandomBoxes() {
+    const { cellSize, count, zonePadding, startPadding } = RANDOM_BOXES;
+    const cols = Math.floor(CANVAS.width / cellSize);
+    const rows = Math.floor(CANVAS.height / cellSize);
+    const candidates = [];
+    for (let cx = 0; cx < cols; cx++) {
+      for (let cy = 0; cy < rows; cy++) {
+        const x = cx * cellSize;
+        const y = cy * cellSize;
+        const centerX = x + cellSize / 2;
+        const centerY = y + cellSize / 2;
+        const distRed = Math.hypot(centerX - ZONES.red.x, centerY - ZONES.red.y);
+        const distBlue = Math.hypot(centerX - ZONES.blue.x, centerY - ZONES.blue.y);
+        if (distRed < ZONES.red.radius + zonePadding) continue;
+        if (distBlue < ZONES.blue.radius + zonePadding) continue;
+        const distP1 = Math.hypot(centerX - STARTS.p1.x, centerY - STARTS.p1.y);
+        const distP2 = Math.hypot(centerX - STARTS.p2.x, centerY - STARTS.p2.y);
+        if (distP1 < startPadding) continue;
+        if (distP2 < startPadding) continue;
+        candidates.push({ x, y, w: cellSize, h: cellSize });
+      }
+    }
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    return candidates.slice(0, count).map(b => new Box(b));
   }
 
   // -------- update --------
@@ -150,6 +190,11 @@ export class Game {
 
     this._resolvePushes();
 
+    this._tickMines(dt);
+    this._tickPowerUps(dt);
+    this._checkMineCollisions();
+    this._checkPowerUpCollisions();
+
     this.renderer.updateParticles(dt);
 
     this._tickScoring(dt);
@@ -163,6 +208,8 @@ export class Game {
     // tick timers
     if (player.freezeTimer > 0) player.freezeTimer = Math.max(0, player.freezeTimer - dt);
     if (player.cooldownTimer > 0) player.cooldownTimer = Math.max(0, player.cooldownTimer - dt);
+    if (player.shieldTimer > 0) player.shieldTimer = Math.max(0, player.shieldTimer - dt);
+    if (player.speedTimer > 0) player.speedTimer = Math.max(0, player.speedTimer - dt);
 
     // push slide animation overrides input movement
     if (player.pushSlide) {
@@ -185,9 +232,10 @@ export class Game {
 
     const v = this.input.movement(binding);
     const old = { x: player.x, y: player.y };
+    const speedMul = player.speedTimer > 0 ? 2 : 1;
     const desired = {
-      x: player.x + v.x * PLAYER.speed * dt,
-      y: player.y + v.y * PLAYER.speed * dt,
+      x: player.x + v.x * PLAYER.speed * speedMul * dt,
+      y: player.y + v.y * PLAYER.speed * speedMul * dt,
     };
     let next = resolveCircleVsBoxes(old, desired, player.radius, this.boxes);
     next = clampToBounds(next, player.radius, { w: CANVAS.width, h: CANVAS.height });
@@ -210,21 +258,138 @@ export class Game {
   _applyPush(attacker, target, attackerPos, targetPos) {
     attacker.cooldownTimer = PLAYER.pushCooldown;
     if (!detectPushTarget(attackerPos, targetPos, PLAYER.pushRange)) return;
+
+    // Shield blocks the attack entirely. Attacker still pays cooldown but gets no score.
+    if (target.shieldTimer > 0) {
+      this.audio.pushImpact();
+      this.renderer.spawnPushParticles(target.x, target.y, '#ffffff');
+      return;
+    }
+
     target.freezeTimer = PLAYER.freezeDuration;
-    const to = computePushTarget(attackerPos, targetPos, PLAYER.pushDistance);
-    target.pushSlide = {
-      fromX: target.x,
-      fromY: target.y,
-      toX: to.x,
-      toY: to.y,
-      elapsed: 0,
-      duration: PLAYER.pushSlideDuration,
-    };
     this.audio.pushImpact();
     attacker.score += SCORING.pushHitTenths;
-    const midX = (attackerPos.x + targetPos.x) / 2;
-    const midY = (attackerPos.y + targetPos.y) / 2;
-    this.renderer.spawnPushParticles(midX, midY, target.color);
+
+    if (attacker.teleportPunchReady) {
+      attacker.teleportPunchReady = false;
+      const ownZone = target.id === 'red' ? this.zones.red : this.zones.blue;
+      target.x = ownZone.x;
+      target.y = ownZone.y;
+      target.pushSlide = null;
+      this.renderer.spawnPushParticles(ownZone.x, ownZone.y, target.color);
+    } else {
+      const to = computePushTarget(attackerPos, targetPos, PLAYER.pushDistance);
+      target.pushSlide = {
+        fromX: target.x,
+        fromY: target.y,
+        toX: to.x,
+        toY: to.y,
+        elapsed: 0,
+        duration: PLAYER.pushSlideDuration,
+      };
+      const midX = (attackerPos.x + targetPos.x) / 2;
+      const midY = (attackerPos.y + targetPos.y) / 2;
+      this.renderer.spawnPushParticles(midX, midY, target.color);
+    }
+  }
+
+  _findOpenPosition(radius, minPlayerDistance) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const x = radius + Math.random() * (CANVAS.width - radius * 2);
+      const y = radius + Math.random() * (CANVAS.height - radius * 2);
+      let onBox = false;
+      for (const box of this.boxes) {
+        if (x + radius > box.x && x - radius < box.x + box.w &&
+            y + radius > box.y && y - radius < box.y + box.h) {
+          onBox = true; break;
+        }
+      }
+      if (onBox) continue;
+      const d1 = Math.hypot(x - this.p1.x, y - this.p1.y);
+      const d2 = Math.hypot(x - this.p2.x, y - this.p2.y);
+      if (d1 < minPlayerDistance || d2 < minPlayerDistance) continue;
+      return { x, y };
+    }
+    return null;
+  }
+
+  _tickMines(dt) {
+    this.mineSpawnTimer += dt;
+    if (this.mineSpawnTimer >= MINE.spawnInterval) {
+      this.mineSpawnTimer -= MINE.spawnInterval;
+      for (let i = 0; i < MINE.perSpawn; i++) {
+        const pos = this._findOpenPosition(MINE.radius, 60);
+        if (pos) this.mines.push({ x: pos.x, y: pos.y });
+      }
+    }
+  }
+
+  _checkMineCollisions() {
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const m = this.mines[i];
+      for (const p of [this.p1, this.p2]) {
+        if (p.shieldTimer > 0) continue;
+        const d = Math.hypot(p.x - m.x, p.y - m.y);
+        if (d < MINE.triggerDistance) {
+          this._applyMine(p, m);
+          this.mines.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  _applyMine(player, mine) {
+    player.score = Math.max(0, player.score - SCORING.minePenaltyTenths);
+    player.freezeTimer = PLAYER.freezeDuration;
+    player.cooldownTimer = PLAYER.pushCooldown;
+    const dx = player.x - mine.x;
+    const dy = player.y - mine.y;
+    const d = Math.hypot(dx, dy);
+    let dirX = 0, dirY = -1;
+    if (d > 0.001) { dirX = dx / d; dirY = dy / d; }
+    player.pushSlide = {
+      fromX: player.x, fromY: player.y,
+      toX: player.x + dirX * PLAYER.pushDistance,
+      toY: player.y + dirY * PLAYER.pushDistance,
+      elapsed: 0, duration: PLAYER.pushSlideDuration,
+    };
+    this.audio.pushImpact();
+    this.renderer.spawnPushParticles(mine.x, mine.y, '#ff6040');
+  }
+
+  _tickPowerUps(dt) {
+    this.powerUpSpawnTimer += dt;
+    if (this.powerUpSpawnTimer >= POWERUP.spawnInterval) {
+      this.powerUpSpawnTimer -= POWERUP.spawnInterval;
+      const pos = this._findOpenPosition(POWERUP.radius, 80);
+      if (pos) {
+        const type = POWERUP.types[Math.floor(Math.random() * POWERUP.types.length)];
+        this.powerUps.push({ x: pos.x, y: pos.y, type });
+      }
+    }
+  }
+
+  _checkPowerUpCollisions() {
+    for (let i = this.powerUps.length - 1; i >= 0; i--) {
+      const pu = this.powerUps[i];
+      for (const p of [this.p1, this.p2]) {
+        const d = Math.hypot(p.x - pu.x, p.y - pu.y);
+        if (d < POWERUP.pickupDistance) {
+          this._applyPowerUp(p, pu);
+          this.powerUps.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  _applyPowerUp(player, pu) {
+    if (pu.type === 'shield') player.shieldTimer = POWERUP.duration;
+    else if (pu.type === 'speed') player.speedTimer = POWERUP.duration;
+    else if (pu.type === 'teleport') player.teleportPunchReady = true;
+    this.audio.scoreMilestone();
+    this.renderer.spawnPushParticles(pu.x, pu.y, player.color);
   }
 
   _tickScoring(dt) {
@@ -297,6 +462,8 @@ export class Game {
     this.renderer.drawZone(this.zones.red);
     this.renderer.drawZone(this.zones.blue);
     for (const b of this.boxes) this.renderer.drawBox(b);
+    for (const m of this.mines) this.renderer.drawMine(m);
+    for (const pu of this.powerUps) this.renderer.drawPowerUp(pu);
     this.renderer.drawPlayer(this.p1);
     this.renderer.drawPlayer(this.p2);
     this.renderer.drawParticles();

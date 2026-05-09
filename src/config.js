@@ -13,17 +13,41 @@ export const PLAYER = {
 };
 
 // Score is stored internally in tenths so we can do integer math.
-// zoneScoreTenths = 1 means +0.1 displayed per tick.
-// pushHitTenths   = 10 means +1.0 displayed per successful push.
+// zoneScoreTenths    = 1  means +0.1 displayed per tick.
+// pushHitTenths      = 10 means +1.0 displayed per successful push.
+// minePenaltyTenths  = 10 means -1.0 displayed per mine hit (clamped at 0).
 export const SCORING = {
   tickInterval: 1.0,
   defaultTarget: 100,
   zoneScoreTenths: 1,
   pushHitTenths: 10,
+  minePenaltyTenths: 10,
 };
 
 // Seconds a player can stay in the opponent's zone before being teleported back to their own zone.
 export const ZONE_EJECT_TIME = 5.0;
+
+export const MINE = {
+  spawnInterval: 5.0,
+  perSpawn: 4,
+  radius: 8,
+  triggerDistance: 30, // player center within this many px triggers explosion
+};
+
+export const POWERUP = {
+  spawnInterval: 20.0,
+  radius: 14,
+  pickupDistance: 30,
+  duration: 3.0, // seconds for shield/speed
+  types: ['shield', 'speed', 'teleport'],
+};
+
+export const RANDOM_BOXES = {
+  count: 13,
+  cellSize: 40,
+  zonePadding: 20,    // extra px around zones to keep clear
+  startPadding: 60,   // extra px around player starts to keep clear
+};
 
 export const COUNTDOWN_SECONDS = 3;
 
