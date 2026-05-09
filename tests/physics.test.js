@@ -63,3 +63,17 @@ test('resolveCircleVsBoxes: handles multiple boxes', () => {
   const result = resolveCircleVsBoxes({ x: 250, y: 120 }, { x: 245, y: 120 }, 18, boxes);
   assert.ok(result.x >= 240 + 18 - 0.01);
 });
+
+test('resolveCircleVsBoxes: stops circle moving into box from top', () => {
+  const boxes = [{ x: 100, y: 100, w: 40, h: 40 }];
+  const result = resolveCircleVsBoxes({ x: 120, y: 50 }, { x: 120, y: 95 }, 18, boxes);
+  assert.ok(result.y <= 100 - 18 + 0.01);
+  assert.equal(result.x, 120);
+});
+
+test('resolveCircleVsBoxes: stops circle moving into box from bottom', () => {
+  const boxes = [{ x: 100, y: 100, w: 40, h: 40 }];
+  const result = resolveCircleVsBoxes({ x: 120, y: 200 }, { x: 120, y: 145 }, 18, boxes);
+  assert.ok(result.y >= 140 + 18 - 0.01);
+  assert.equal(result.x, 120);
+});
