@@ -4,7 +4,15 @@ Local 2-player browser game. Two heroes on one keyboard battle for zone control.
 
 ## Run
 
-Open `index.html` directly in any modern browser. No build step.
+The game uses ES modules, which Chrome blocks when opened directly via `file://`. Serve over HTTP instead:
+
+```
+npm run serve
+```
+
+Then open http://localhost:8000 in any modern browser.
+
+(Safari and Firefox can also open `index.html` directly via file://, but Chrome cannot.)
 
 ## Controls
 
