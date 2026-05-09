@@ -47,3 +47,19 @@ export function resolveCircleVsCircle(oldPos, newPos, r1, otherPos, r2) {
     y: newPos.y + (dy / dist) * overlap,
   };
 }
+
+export function detectPushTarget(attackerPos, targetPos, range) {
+  const d = Math.hypot(targetPos.x - attackerPos.x, targetPos.y - attackerPos.y);
+  return d <= range;
+}
+
+export function computePushTarget(attackerPos, targetPos, distance) {
+  const dx = targetPos.x - attackerPos.x;
+  const dy = targetPos.y - attackerPos.y;
+  const d = Math.hypot(dx, dy);
+  if (d === 0) return { x: targetPos.x, y: targetPos.y };
+  return {
+    x: targetPos.x + (dx / d) * distance,
+    y: targetPos.y + (dy / d) * distance,
+  };
+}

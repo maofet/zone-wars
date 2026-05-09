@@ -106,3 +106,41 @@ test('resolveCircleVsCircle: zero-distance fallback pushes right by minDist', ()
   assert.equal(result.x, 136); // 100 + 18 + 18
   assert.equal(result.y, 100);
 });
+
+import { detectPushTarget, computePushTarget } from '../src/physics.js';
+
+test('detectPushTarget: returns target when within range', () => {
+  const attacker = { x: 100, y: 100 };
+  const target = { x: 130, y: 100 };
+  assert.equal(detectPushTarget(attacker, target, 50), true);
+});
+
+test('detectPushTarget: returns false when out of range', () => {
+  const attacker = { x: 100, y: 100 };
+  const target = { x: 200, y: 100 };
+  assert.equal(detectPushTarget(attacker, target, 50), false);
+});
+
+test('computePushTarget: shifts target away from attacker by pushDistance', () => {
+  const attacker = { x: 100, y: 100 };
+  const target = { x: 130, y: 100 };
+  const r = computePushTarget(attacker, target, 40);
+  assert.equal(r.x, 170);
+  assert.equal(r.y, 100);
+});
+
+test('computePushTarget: handles diagonal push', () => {
+  const attacker = { x: 0, y: 0 };
+  const target = { x: 30, y: 40 };
+  const r = computePushTarget(attacker, target, 50);
+  // direction is (3/5, 4/5), shift adds 50 in that direction -> (60, 80)
+  assert.ok(Math.abs(r.x - 60) < 0.001);
+  assert.ok(Math.abs(r.y - 80) < 0.001);
+});
+
+test('computePushTarget: zero distance falls back to no shift (degenerate)', () => {
+  const attacker = { x: 100, y: 100 };
+  const target = { x: 100, y: 100 };
+  const r = computePushTarget(attacker, target, 40);
+  assert.deepEqual(r, { x: 100, y: 100 });
+});
