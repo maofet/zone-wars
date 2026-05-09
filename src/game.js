@@ -93,11 +93,13 @@ export class Game {
   }
 
   _currentPushBonus() {
-    return SCORING.pushHitTenthsBase + this._minuteIndex() * SCORING.pushHitTenthsPerMinute;
+    const raw = SCORING.pushHitTenthsBase + this._minuteIndex() * SCORING.pushHitTenthsPerMinute;
+    return Math.min(SCORING.pushHitTenthsMax, raw);
   }
 
   _currentMinePenalty() {
-    return SCORING.minePenaltyTenthsBase + this._minuteIndex() * SCORING.minePenaltyTenthsPerMinute;
+    const raw = SCORING.minePenaltyTenthsBase + this._minuteIndex() * SCORING.minePenaltyTenthsPerMinute;
+    return Math.min(SCORING.minePenaltyTenthsMax, raw);
   }
 
   _generateRandomBoxes() {

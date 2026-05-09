@@ -16,16 +16,20 @@ export const PLAYER = {
 // zoneScoreTenths              = 1  means +0.1 displayed per tick.
 // pushHitTenthsBase            = 10 means +1.0 base reward per successful push.
 // pushHitTenthsPerMinute       = 10 means +1.0 added per elapsed match-minute.
+// pushHitTenthsMax             = 30 means push reward capped at +3.0.
 // minePenaltyTenthsBase        = 10 means -1.0 base penalty per mine hit.
 // minePenaltyTenthsPerMinute   = 5  means -0.5 added per elapsed match-minute.
+// minePenaltyTenthsMax         = 50 means mine penalty capped at -5.0.
 export const SCORING = {
   tickInterval: 1.0,
   defaultTarget: 100,
   zoneScoreTenths: 1,
   pushHitTenthsBase: 10,
   pushHitTenthsPerMinute: 10,
+  pushHitTenthsMax: 30,
   minePenaltyTenthsBase: 10,
   minePenaltyTenthsPerMinute: 5,
+  minePenaltyTenthsMax: 50,
 };
 
 // Seconds a player can stay in the opponent's zone before being teleported back to their own zone.
