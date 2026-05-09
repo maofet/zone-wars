@@ -29,10 +29,14 @@ export const ZONE_EJECT_TIME = 5.0;
 
 export const MINE = {
   spawnInterval: 5.0,
-  perSpawn: 4,
+  perSpawn: 2,
+  maxOnMap: 20,
   radius: 8,
   triggerDistance: 30, // player center within this many px triggers explosion
 };
+
+// Score below this (in tenths) makes the player lose. -100 = -10.0 displayed.
+export const LOSE_SCORE_TENTHS = -100;
 
 export const POWERUP = {
   spawnInterval: 20.0,

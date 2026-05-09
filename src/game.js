@@ -1,6 +1,6 @@
 import {
   CANVAS, ZONES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
-  MINE, POWERUP, RANDOM_BOXES,
+  MINE, POWERUP, RANDOM_BOXES, LOSE_SCORE_TENTHS,
 } from './config.js';
 import { Player } from './entities/player.js';
 import { Box } from './entities/box.js';
@@ -293,7 +293,7 @@ export class Game {
     }
   }
 
-  _findOpenPosition(radius, minPlayerDistance) {
+  _findOpenPosition(radius, minPlayerDistance, avoidZones = false) {
     for (let attempt = 0; attempt < 50; attempt++) {
       const x = radius + Math.random() * (CANVAS.width - radius * 2);
       const y = radius + Math.random() * (CANVAS.height - radius * 2);
@@ -308,6 +308,12 @@ export class Game {
       const d1 = Math.hypot(x - this.p1.x, y - this.p1.y);
       const d2 = Math.hypot(x - this.p2.x, y - this.p2.y);
       if (d1 < minPlayerDistance || d2 < minPlayerDistance) continue;
+      if (avoidZones) {
+        const dRed = Math.hypot(x - this.zones.red.x, y - this.zones.red.y);
+        const dBlue = Math.hypot(x - this.zones.blue.x, y - this.zones.blue.y);
+        if (dRed < this.zones.red.radius + radius) continue;
+        if (dBlue < this.zones.blue.radius + radius) continue;
+      }
       return { x, y };
     }
     return null;
@@ -317,8 +323,10 @@ export class Game {
     this.mineSpawnTimer += dt;
     if (this.mineSpawnTimer >= MINE.spawnInterval) {
       this.mineSpawnTimer -= MINE.spawnInterval;
-      for (let i = 0; i < MINE.perSpawn; i++) {
-        const pos = this._findOpenPosition(MINE.radius, 60);
+      const slots = Math.max(0, MINE.maxOnMap - this.mines.length);
+      const toSpawn = Math.min(MINE.perSpawn, slots);
+      for (let i = 0; i < toSpawn; i++) {
+        const pos = this._findOpenPosition(MINE.radius, 60, true);
         if (pos) this.mines.push({ x: pos.x, y: pos.y });
       }
     }
@@ -340,7 +348,7 @@ export class Game {
   }
 
   _applyMine(player, mine) {
-    player.score = Math.max(0, player.score - SCORING.minePenaltyTenths);
+    player.score -= SCORING.minePenaltyTenths;
     player.freezeTimer = PLAYER.freezeDuration;
     player.cooldownTimer = PLAYER.pushCooldown;
     const dx = player.x - mine.x;
@@ -433,6 +441,8 @@ export class Game {
     const targetTenths = this.ui.settings.targetScore * 10;
     if (this.p1.score >= targetTenths)      this._endMatch(this.p1);
     else if (this.p2.score >= targetTenths) this._endMatch(this.p2);
+    else if (this.p1.score <= LOSE_SCORE_TENTHS) this._endMatch(this.p2);
+    else if (this.p2.score <= LOSE_SCORE_TENTHS) this._endMatch(this.p1);
   }
 
   _endMatch(winner) {
