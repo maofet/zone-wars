@@ -99,3 +99,10 @@ test('resolveCircleVsCircle: leaves mover unchanged when no overlap', () => {
   );
   assert.deepEqual(result, { x: 60, y: 100 });
 });
+
+test('resolveCircleVsCircle: zero-distance fallback pushes right by minDist', () => {
+  const other = { x: 100, y: 100 };
+  const result = resolveCircleVsCircle({ x: 100, y: 100 }, { x: 100, y: 100 }, 18, other, 18);
+  assert.equal(result.x, 136); // 100 + 18 + 18
+  assert.equal(result.y, 100);
+});
