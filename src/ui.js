@@ -1,6 +1,10 @@
 import { CANVAS, COLORS, SCORING, STORAGE_KEY } from './config.js';
 
 const TARGET_OPTIONS = [50, 100, 200];
+const PUSH_MAX_OPTIONS = [3, 5, 7, 10];
+const MINE_MAX_OPTIONS = [3, 5, 7, 10];
+const DEFAULT_PUSH_MAX = 5;
+const DEFAULT_MINE_MAX = 5;
 
 export class UI {
   constructor(renderer) {
@@ -18,9 +22,16 @@ export class UI {
       return {
         targetScore: TARGET_OPTIONS.includes(obj.targetScore) ? obj.targetScore : SCORING.defaultTarget,
         muted: !!obj.muted,
+        pushMax: PUSH_MAX_OPTIONS.includes(obj.pushMax) ? obj.pushMax : DEFAULT_PUSH_MAX,
+        mineMax: MINE_MAX_OPTIONS.includes(obj.mineMax) ? obj.mineMax : DEFAULT_MINE_MAX,
       };
     } catch {
-      return { targetScore: SCORING.defaultTarget, muted: false };
+      return {
+        targetScore: SCORING.defaultTarget,
+        muted: false,
+        pushMax: DEFAULT_PUSH_MAX,
+        mineMax: DEFAULT_MINE_MAX,
+      };
     }
   }
 
@@ -70,12 +81,14 @@ export class UI {
     const rows = [
       `Target score: ${this.settings.targetScore}  (Left/Right to change)`,
       `Sound: ${this.settings.muted ? 'OFF' : 'ON'}  (Enter to toggle)`,
+      `Push max: +${this.settings.pushMax}.0  (Left/Right to change)`,
+      `Mine max: -${this.settings.mineMax}.0  (Left/Right to change)`,
       'Back',
     ];
     rows.forEach((row, i) => {
-      const y = 220 + i * 60;
+      const y = 200 + i * 50;
       const selected = i === selectedIndex;
-      ctx.font = selected ? 'bold 24px system-ui, sans-serif' : '22px system-ui, sans-serif';
+      ctx.font = selected ? 'bold 22px system-ui, sans-serif' : '20px system-ui, sans-serif';
       ctx.fillStyle = selected ? '#ffffff' : COLORS.textDim;
       ctx.fillText(row, CANVAS.width / 2, y);
     });
@@ -148,6 +161,20 @@ export class UI {
     const idx = TARGET_OPTIONS.indexOf(this.settings.targetScore);
     const next = (idx + dir + TARGET_OPTIONS.length) % TARGET_OPTIONS.length;
     this.settings.targetScore = TARGET_OPTIONS[next];
+    this.saveSettings();
+  }
+
+  cyclePushMax(dir) {
+    const idx = PUSH_MAX_OPTIONS.indexOf(this.settings.pushMax);
+    const next = (idx + dir + PUSH_MAX_OPTIONS.length) % PUSH_MAX_OPTIONS.length;
+    this.settings.pushMax = PUSH_MAX_OPTIONS[next];
+    this.saveSettings();
+  }
+
+  cycleMineMax(dir) {
+    const idx = MINE_MAX_OPTIONS.indexOf(this.settings.mineMax);
+    const next = (idx + dir + MINE_MAX_OPTIONS.length) % MINE_MAX_OPTIONS.length;
+    this.settings.mineMax = MINE_MAX_OPTIONS[next];
     this.saveSettings();
   }
 

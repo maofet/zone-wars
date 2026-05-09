@@ -94,12 +94,14 @@ export class Game {
 
   _currentPushBonus() {
     const raw = SCORING.pushHitTenthsBase + this._minuteIndex() * SCORING.pushHitTenthsPerMinute;
-    return Math.min(SCORING.pushHitTenthsMax, raw);
+    const cap = (this.ui.settings.pushMax ?? 5) * 10;
+    return Math.min(cap, raw);
   }
 
   _currentMinePenalty() {
     const raw = SCORING.minePenaltyTenthsBase + this._minuteIndex() * SCORING.minePenaltyTenthsPerMinute;
-    return Math.min(SCORING.minePenaltyTenthsMax, raw);
+    const cap = (this.ui.settings.mineMax ?? 5) * 10;
+    return Math.min(cap, raw);
   }
 
   _generateRandomBoxes() {
@@ -161,7 +163,7 @@ export class Game {
   }
 
   _updateSettings() {
-    const items = 3; // target, sound, back
+    const items = 5; // target, sound, push max, mine max, back
     if (this.input.pressed.has('ArrowUp'))   this.ui.settingsSelection = (this.ui.settingsSelection - 1 + items) % items;
     if (this.input.pressed.has('ArrowDown')) this.ui.settingsSelection = (this.ui.settingsSelection + 1) % items;
     if (this.ui.settingsSelection === 0) {
@@ -172,7 +174,15 @@ export class Game {
       this.ui.toggleMuted();
       this.audio.setMuted(this.ui.settings.muted);
     }
-    if (this.ui.settingsSelection === 2 && this.input.pressed.has('Enter')) {
+    if (this.ui.settingsSelection === 2) {
+      if (this.input.pressed.has('ArrowLeft'))  this.ui.cyclePushMax(-1);
+      if (this.input.pressed.has('ArrowRight')) this.ui.cyclePushMax(+1);
+    }
+    if (this.ui.settingsSelection === 3) {
+      if (this.input.pressed.has('ArrowLeft'))  this.ui.cycleMineMax(-1);
+      if (this.input.pressed.has('ArrowRight')) this.ui.cycleMineMax(+1);
+    }
+    if (this.ui.settingsSelection === 4 && this.input.pressed.has('Enter')) {
       this.state = STATE.MENU;
     }
     if (this.input.pressed.has('Escape')) this.state = STATE.MENU;
