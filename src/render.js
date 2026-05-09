@@ -84,9 +84,9 @@ export class Renderer {
     ctx.stroke();
     ctx.restore();
 
-    // cooldown ring (outer arc, fills back over 5s)
+    // cooldown ring (outer arc, fills back over PLAYER.pushCooldown seconds)
     if (player.cooldownTimer > 0) {
-      const fraction = 1 - player.cooldownTimer / 5;
+      const fraction = 1 - player.cooldownTimer / PLAYER.pushCooldown;
       ctx.save();
       ctx.strokeStyle = player.glow;
       ctx.lineWidth = 2;
@@ -145,9 +145,9 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.shadowColor = '#ff3060';
     ctx.shadowBlur = 8;
-    ctx.fillText(String(p1.score), CANVAS.width / 2 - 60, 36);
+    ctx.fillText((p1.score / 10).toFixed(1), CANVAS.width / 2 - 60, 36);
     ctx.shadowColor = '#30b0ff';
-    ctx.fillText(String(p2.score), CANVAS.width / 2 + 60, 36);
+    ctx.fillText((p2.score / 10).toFixed(1), CANVAS.width / 2 + 60, 36);
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.textDim;
     ctx.font = '14px system-ui, sans-serif';

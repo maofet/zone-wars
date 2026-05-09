@@ -5,7 +5,9 @@ export class Input {
     this.held = new Set();
     this.pressed = new Set();
     this.handlers = {};
+    const SCROLL_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
     this._onKeyDown = (e) => {
+      if (SCROLL_KEYS.has(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.held.add(e.code);
       this.pressed.add(e.code);
@@ -15,6 +17,8 @@ export class Input {
     };
     this._onBlur = () => {
       this.held.clear();
+      this.pressed.clear();
+      console.log('[zone-wars] window blur (auto-pause if playing)');
       if (this.handlers.blur) this.handlers.blur();
     };
   }

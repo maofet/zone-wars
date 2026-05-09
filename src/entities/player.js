@@ -10,10 +10,11 @@ export class Player {
     this.vx = 0;
     this.vy = 0;
     this.radius = PLAYER.radius;
-    this.score = 0;
+    this.score = 0; // stored in tenths: 10 = 1.0 displayed
     this.freezeTimer = 0;
     this.cooldownTimer = 0;
     this.pushSlide = null; // {fromX, fromY, toX, toY, elapsed, duration}
+    this.opponentZoneTimer = 0; // seconds the player has been inside opponent's zone
   }
 
   isFrozen() {
@@ -33,5 +34,6 @@ export class Player {
     this.freezeTimer = 0;
     this.cooldownTimer = 0;
     this.pushSlide = null;
+    this.opponentZoneTimer = 0;
   }
 }

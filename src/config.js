@@ -5,18 +5,25 @@ export const GRID = { cellSize: 40 };
 export const PLAYER = {
   radius: 18,
   speed: 220,
-  pushRange: 50,
-  pushDistance: 40,
-  pushSlideDuration: 0.12,
+  pushRange: 60,
+  pushDistance: 100,
+  pushSlideDuration: 0.20,
   freezeDuration: 1.0,
   pushCooldown: 5.0,
 };
 
+// Score is stored internally in tenths so we can do integer math.
+// zoneScoreTenths = 1 means +0.1 displayed per tick.
+// pushHitTenths   = 10 means +1.0 displayed per successful push.
 export const SCORING = {
   tickInterval: 1.0,
   defaultTarget: 100,
-  milestoneInterval: 10,
+  zoneScoreTenths: 1,
+  pushHitTenths: 10,
 };
+
+// Seconds a player can stay in the opponent's zone before being teleported back to their own zone.
+export const ZONE_EJECT_TIME = 5.0;
 
 export const COUNTDOWN_SECONDS = 3;
 
@@ -31,12 +38,23 @@ export const STARTS = {
 };
 
 export const BOXES = [
+  // Top row: corner posts + center pillar top
+  { x: 240, y: 80, w: 40, h: 40 },
   { x: 460, y: 80, w: 40, h: 40 },
-  { x: 460, y: 160, w: 40, h: 40 },
-  { x: 340, y: 250, w: 40, h: 40 },
-  { x: 580, y: 250, w: 40, h: 40 },
+  { x: 720, y: 80, w: 40, h: 40 },
+  // Center pillar (vertical chain)
+  { x: 460, y: 140, w: 40, h: 40 },
+  { x: 460, y: 240, w: 40, h: 40 },
   { x: 460, y: 360, w: 40, h: 40 },
-  { x: 460, y: 440, w: 40, h: 40 },
+  // Mid: cover above and below each zone
+  { x: 280, y: 200, w: 40, h: 40 },
+  { x: 680, y: 200, w: 40, h: 40 },
+  { x: 280, y: 320, w: 40, h: 40 },
+  { x: 680, y: 320, w: 40, h: 40 },
+  // Bottom row: corner posts + center pillar bottom
+  { x: 240, y: 420, w: 40, h: 40 },
+  { x: 460, y: 420, w: 40, h: 40 },
+  { x: 720, y: 420, w: 40, h: 40 },
 ];
 
 export const COLORS = {

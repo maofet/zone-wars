@@ -1,5 +1,5 @@
 import {
-  CANVAS, ZONES, BOXES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS,
+  CANVAS, ZONES, BOXES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
 } from './config.js';
 import { Player } from './entities/player.js';
 import { Box } from './entities/box.js';
@@ -154,6 +154,8 @@ export class Game {
 
     this._tickScoring(dt);
 
+    this._checkZoneEjection(dt);
+
     this._checkWin();
   }
 
@@ -219,6 +221,7 @@ export class Game {
       duration: PLAYER.pushSlideDuration,
     };
     this.audio.pushImpact();
+    attacker.score += SCORING.pushHitTenths;
     const midX = (attackerPos.x + targetPos.x) / 2;
     const midY = (attackerPos.y + targetPos.y) / 2;
     this.renderer.spawnPushParticles(midX, midY, target.color);
@@ -228,20 +231,43 @@ export class Game {
     this.scoreAccumulator += dt;
     while (this.scoreAccumulator >= SCORING.tickInterval) {
       this.scoreAccumulator -= SCORING.tickInterval;
-      if (this.zones.blue.contains(this.p1)) this._addScore(this.p1);
-      if (this.zones.red.contains(this.p2))  this._addScore(this.p2);
+      if (this.zones.blue.contains(this.p1)) this._addZoneScore(this.p1);
+      if (this.zones.red.contains(this.p2))  this._addZoneScore(this.p2);
     }
   }
 
-  _addScore(player) {
-    player.score += 1;
-    if (player.score % SCORING.milestoneInterval === 0) this.audio.scoreMilestone();
+  _addZoneScore(player) {
+    const oldInt = Math.floor(player.score / 10);
+    player.score += SCORING.zoneScoreTenths;
+    const newInt = Math.floor(player.score / 10);
+    if (newInt > oldInt) this.audio.scoreMilestone();
+  }
+
+  _checkZoneEjection(dt) {
+    this._tickZoneEjection(this.p1, this.zones.blue, this.zones.red, dt);
+    this._tickZoneEjection(this.p2, this.zones.red, this.zones.blue, dt);
+  }
+
+  _tickZoneEjection(player, opponentZone, ownZone, dt) {
+    if (opponentZone.contains(player)) {
+      player.opponentZoneTimer += dt;
+      if (player.opponentZoneTimer >= ZONE_EJECT_TIME) {
+        player.opponentZoneTimer = 0;
+        player.x = ownZone.x;
+        player.y = ownZone.y;
+        player.pushSlide = null;
+        player.freezeTimer = 0;
+        this.renderer.spawnPushParticles(ownZone.x, ownZone.y, player.color);
+      }
+    } else {
+      player.opponentZoneTimer = 0;
+    }
   }
 
   _checkWin() {
-    const target = this.ui.settings.targetScore;
-    if (this.p1.score >= target)      this._endMatch(this.p1);
-    else if (this.p2.score >= target) this._endMatch(this.p2);
+    const targetTenths = this.ui.settings.targetScore * 10;
+    if (this.p1.score >= targetTenths)      this._endMatch(this.p1);
+    else if (this.p2.score >= targetTenths) this._endMatch(this.p2);
   }
 
   _endMatch(winner) {

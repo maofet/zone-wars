@@ -129,7 +129,7 @@ export class UI {
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.textBright;
     ctx.font = '32px system-ui, sans-serif';
-    ctx.fillText(`${p1Score} : ${p2Score}`, CANVAS.width / 2, 280);
+    ctx.fillText(`${(p1Score / 10).toFixed(1)} : ${(p2Score / 10).toFixed(1)}`, CANVAS.width / 2, 280);
     ctx.font = '20px system-ui, sans-serif';
     ctx.fillStyle = COLORS.textDim;
     ctx.fillText('Enter = Restart    Esc = Main Menu', CANVAS.width / 2, 360);
