@@ -39,7 +39,7 @@ export class UI {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
   }
 
-  drawMenu(items, selectedIndex) {
+  drawMenu(items, selectedIndex, notification) {
     const ctx = this.renderer.ctx;
     const cw = this.renderer.canvas.width;
     const ch = this.renderer.canvas.height;
@@ -67,6 +67,13 @@ export class UI {
       }
       ctx.fillText(item, cw / 2, y);
     });
+
+    if (notification) {
+      ctx.shadowBlur = 0;
+      ctx.font = '16px system-ui, sans-serif';
+      ctx.fillStyle = '#ff5070';
+      ctx.fillText(notification, cw / 2, ch - 40);
+    }
     ctx.restore();
   }
 
@@ -331,10 +338,10 @@ export class UI {
     ctx.fillStyle = COLORS.textBright;
     ctx.textAlign = 'center';
     ctx.font = 'bold 48px system-ui, sans-serif';
-    ctx.fillText('CONNECTING...', cw / 2, ch / 2);
+    ctx.fillText(message ? 'CONNECTED' : 'CONNECTING...', cw / 2, ch / 2);
     if (message) {
       ctx.font = '20px system-ui, sans-serif';
-      ctx.fillStyle = COLORS.textDim;
+      ctx.fillStyle = '#40d060';
       ctx.fillText(message, cw / 2, ch / 2 + 50);
     }
     ctx.fillStyle = COLORS.textDim;

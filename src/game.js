@@ -10,7 +10,35 @@ import {
   clampToBounds, resolveCircleVsBoxes, resolveCircleVsCircle,
   detectPushTarget, computePushTarget,
 } from './physics.js';
-import { generateRoomCode } from './net.js';
+import { hostRoom, joinRoom } from './net.js';
+
+// Provides the Input interface but reads from a per-slot record
+// of the last received network input. Used by host for non-local slots.
+class NetworkInput {
+  constructor(remoteInputs, slot) {
+    this.remote = remoteInputs;
+    this.slot = slot;
+  }
+  _state() {
+    return this.remote[this.slot] || { held: new Set(), pushPressed: false, pausePressed: false };
+  }
+  movement(binding) {
+    const r = this._state();
+    let dx = 0, dy = 0;
+    if (r.held.has(binding.up)) dy -= 1;
+    if (r.held.has(binding.down)) dy += 1;
+    if (r.held.has(binding.left)) dx -= 1;
+    if (r.held.has(binding.right)) dx += 1;
+    if (dx !== 0 && dy !== 0) { const inv = 1 / Math.SQRT2; dx *= inv; dy *= inv; }
+    return { x: dx, y: dy };
+  }
+  pushPressed(binding) {
+    return !!this._state().pushPressed;
+  }
+  pausePressed() {
+    return !!this._state().pausePressed;
+  }
+}
 
 const STATE = {
   MENU: 'menu',
@@ -36,6 +64,12 @@ export class Game {
     this.audio = audio;
     this.input = input;
     this.playerCount = playerCount;
+    this.mode = 'local'; // 'local' | 'host' | 'joiner'
+    this.room = null; // host room handle or joiner conn handle
+    this.localSlot = 0; // which slot this client controls (0 for host or local; assigned by host for joiners)
+    this.remoteInputs = []; // for host mode: indexed by slot, each {held: Set, pushPressed: bool, pausePressed: bool}
+    this._snapshotTimer = 0;
+    this.disconnectMessage = null;
     this.canvasSize = MAP_SIZES[playerCount] || MAP_SIZES[2];
     this.entityScaling = ENTITY_SCALING[playerCount] || ENTITY_SCALING[2];
     // Resize the canvas DOM element to match player count
@@ -85,11 +119,43 @@ export class Game {
   _frame = (now) => {
     const dt = Math.min((now - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = now;
-    this.update(dt);
-    this.render();
+
+    if (this.mode === 'joiner') {
+      // Joiner: send local input every frame, animate particles, render last received state.
+      // Allow Escape to disconnect and return to menu.
+      if (this.input.pressed.has('Escape')) {
+        this._endRoomAndReturnToMenu();
+      } else {
+        this._sendJoinerInput();
+        this.renderer.updateParticles(dt);
+        this.render();
+      }
+    } else {
+      // Local or host: full update + render.
+      this.update(dt);
+      if (this.mode === 'host' && this.state === STATE.PLAYING) {
+        this._snapshotTimer += dt;
+        if (this._snapshotTimer >= 1 / 30) {
+          this._snapshotTimer = 0;
+          if (this.room) this.room.broadcast({ type: 'state', snap: this._serializeState() });
+        }
+      }
+      this.render();
+    }
+
     this.input.endFrame();
     requestAnimationFrame(this._frame);
   };
+
+  _sendJoinerInput() {
+    if (!this.room) return;
+    this.room.send({
+      type: 'input',
+      held: [...this.input.held],
+      pushPressed: this.input.pushPressed(KEYS.p1),
+      pausePressed: this.input.pausePressed(),
+    });
+  }
 
   // -------- state transitions --------
 
@@ -186,9 +252,11 @@ export class Game {
   _updateMenu() {
     if (this.input.pressed.has('ArrowUp')) {
       this.ui.menuSelection = (this.ui.menuSelection - 1 + MENU_ITEMS.length) % MENU_ITEMS.length;
+      this.disconnectMessage = null;
     }
     if (this.input.pressed.has('ArrowDown')) {
       this.ui.menuSelection = (this.ui.menuSelection + 1) % MENU_ITEMS.length;
+      this.disconnectMessage = null;
     }
     if (this.input.pressed.has('Enter') || this.input.pressed.has('Space')) {
       const choice = MENU_ITEMS[this.ui.menuSelection];
@@ -232,21 +300,117 @@ export class Game {
       this.ui.hostPlayerCount = Math.min(6, this.ui.hostPlayerCount + 1);
     }
     if (this.input.pressed.has('Enter')) {
-      this.ui.hostRoomCode = generateRoomCode();
-      this.ui.hostConnectedCount = 1; // host counts as 1
       this.state = STATE.ONLINE_HOST_LOBBY;
+      this.ui.hostRoomCode = '...';
+      this.ui.hostConnectedCount = 1;
+      this._setupHostRoom();
     }
     if (this.input.pressed.has('Escape')) this.state = STATE.ONLINE_MENU;
   }
 
+  async _setupHostRoom() {
+    try {
+      const room = await hostRoom();
+      this.room = room;
+      this.mode = 'host';
+      this.ui.hostRoomCode = room.code;
+      room.onConnection((conn) => {
+        const slot = this.room.connections.indexOf(conn) + 1; // host=0, joiners=1..N
+        if (slot >= this.ui.hostPlayerCount) {
+          conn.close();
+          return;
+        }
+        this.ui.hostConnectedCount = 1 + this.room.connections.length;
+        // Send welcome with slot and player count
+        conn.send(JSON.stringify({
+          type: 'welcome',
+          slot,
+          playerCount: this.ui.hostPlayerCount,
+        }));
+        conn.on('data', (raw) => {
+          try {
+            const msg = JSON.parse(raw);
+            if (msg.type === 'input') {
+              this.remoteInputs[slot] = {
+                held: new Set(msg.held),
+                pushPressed: msg.pushPressed,
+                pausePressed: msg.pausePressed,
+              };
+            }
+          } catch (e) { console.warn('bad msg', e); }
+        });
+      });
+      room.onClose((conn) => {
+        // A joiner disconnected
+        this.ui.hostConnectedCount = Math.max(1, 1 + this.room.connections.length);
+        if (this.state === STATE.PLAYING) {
+          this.disconnectMessage = 'A player disconnected';
+          this._endRoomAndReturnToMenu();
+        }
+      });
+    } catch (e) {
+      this.ui.hostRoomCode = null;
+      this.disconnectMessage = 'Failed to host: ' + e.message;
+      this.state = STATE.ONLINE_MENU;
+    }
+  }
+
+  _endRoomAndReturnToMenu() {
+    if (this.room) {
+      try { this.room.close(); } catch {}
+      this.room = null;
+    }
+    this.mode = 'local';
+    this.localSlot = 0;
+    this.ui.hostRoomCode = null;
+    this.ui.joinWaitingMessage = null;
+    this.state = STATE.MENU;
+  }
+
   _updateOnlineHostLobby() {
     if (this.input.pressed.has('Enter') && this.ui.hostConnectedCount >= 2) {
-      this.state = STATE.MENU;
-      this.ui.hostRoomCode = null;
+      this._startOnlineHostMatch();
     }
     if (this.input.pressed.has('Escape')) {
-      this.ui.hostRoomCode = null;
-      this.state = STATE.ONLINE_MENU;
+      this._endRoomAndReturnToMenu();
+    }
+  }
+
+  _startOnlineHostMatch() {
+    // Reconfigure for hostPlayerCount before startMatch
+    this._reinitForPlayerCount(this.ui.hostPlayerCount);
+    this.startMatch();
+    // Send start message + boxes to joiners
+    if (this.room) {
+      this.room.broadcast({
+        type: 'start',
+        playerCount: this.ui.hostPlayerCount,
+        boxes: this._serializeBoxes(),
+      });
+    }
+  }
+
+  _reinitForPlayerCount(n) {
+    this.playerCount = n;
+    this.canvasSize = MAP_SIZES[n] || MAP_SIZES[2];
+    this.entityScaling = ENTITY_SCALING[n] || ENTITY_SCALING[2];
+    this.renderer.canvas.width = this.canvasSize.width;
+    this.renderer.canvas.height = this.canvasSize.height;
+    const zoneRadius = ZONES.red.radius;
+    const positions = computeZonePositions(n, this.canvasSize.width, this.canvasSize.height, zoneRadius);
+    this.zones = positions.map((pos, i) => new Zone(
+      { x: pos.x, y: pos.y, radius: zoneRadius, color: ZONE_COLORS[i].color, glow: ZONE_COLORS[i].glow },
+      ZONE_COLORS[i].name,
+    ));
+    this.players = positions.map((pos, i) => new Player(
+      ZONE_COLORS[i].name,
+      ZONE_COLORS[i].color,
+      ZONE_COLORS[i].glow,
+      pos,
+    ));
+    this.remoteInputs = [];
+    for (let i = 0; i < n; i++) {
+      this.remoteInputs[i] = { held: new Set(), pushPressed: false, pausePressed: false };
     }
   }
 
@@ -258,6 +422,7 @@ export class Game {
         if (this.ui.joinCodeInput.length === 6) {
           this.ui.joinError = null;
           this.state = STATE.ONLINE_JOIN_WAITING;
+          this._connectAsJoiner(this.ui.joinCodeInput);
         }
       } else if (code === 'Escape') {
         this.state = STATE.ONLINE_MENU;
@@ -274,7 +439,35 @@ export class Game {
 
   _updateOnlineJoinWaiting() {
     if (this.input.pressed.has('Escape')) {
-      this.state = STATE.ONLINE_MENU;
+      this._endRoomAndReturnToMenu();
+    }
+  }
+
+  async _connectAsJoiner(code) {
+    try {
+      const handle = await joinRoom(code);
+      this.room = handle;
+      this.mode = 'joiner';
+      handle.onMessage((msg) => {
+        if (msg.type === 'welcome') {
+          this.localSlot = msg.slot;
+          this._reinitForPlayerCount(msg.playerCount);
+          this.ui.joinWaitingMessage = `Connected as player ${msg.slot + 1}. Waiting for host to start...`;
+        } else if (msg.type === 'start') {
+          this._reinitForPlayerCount(msg.playerCount);
+          this._applyBoxes(msg.boxes);
+          this.state = STATE.COUNTDOWN; // host's snapshot will overwrite shortly
+        } else if (msg.type === 'state') {
+          this._applyState(msg.snap);
+        }
+      });
+      handle.onClose(() => {
+        this.disconnectMessage = 'Host disconnected';
+        this._endRoomAndReturnToMenu();
+      });
+    } catch (e) {
+      this.ui.joinError = e.message || 'Failed to connect';
+      this.state = STATE.ONLINE_JOIN_INPUT;
     }
   }
 
@@ -322,7 +515,7 @@ export class Game {
   }
 
   _updatePlaying(dt) {
-    if (this.input.pausePressed()) {
+    if (this.mode !== 'joiner' && this.input.pausePressed()) {
       this.state = STATE.PAUSED;
       return;
     }
@@ -333,7 +526,7 @@ export class Game {
       for (let j = 0; j < this.players.length; j++) {
         if (j !== i && this.players[j].alive) others.push(this.players[j]);
       }
-      this._updatePlayer(this.players[i], this._bindingFor(i), others, dt);
+      this._updatePlayer(i, this.players[i], others, dt);
     }
 
     this._resolvePushes();
@@ -348,13 +541,31 @@ export class Game {
     this._checkWin();
   }
 
-  _bindingFor(slot) {
-    if (slot === 0) return KEYS.p1;
-    if (slot === 1) return KEYS.p2;
-    return null; // network slots, no local binding
+  _inputForSlot(slot) {
+    if (this.mode === 'local') {
+      // Slot 0 uses p1 binding via local input; slot 1 uses p2 binding via local input.
+      return slot < 2 ? this.input : null;
+    }
+    if (this.mode === 'host') {
+      if (slot === this.localSlot) return this.input;
+      return new NetworkInput(this.remoteInputs, slot);
+    }
+    return null; // joiner doesn't compute movement, host does
   }
 
-  _updatePlayer(player, binding, others, dt) {
+  _bindingForSlot(slot) {
+    if (this.mode === 'local') {
+      if (slot === 0) return KEYS.p1;
+      if (slot === 1) return KEYS.p2;
+      return null;
+    }
+    // online: every player uses the P1 binding (their local WASD/Shift)
+    // because their browser is theirs alone; the host then uses NetworkInput
+    // which reads slot's "held" set verbatim.
+    return KEYS.p1;
+  }
+
+  _updatePlayer(slot, player, others, dt) {
     // tick timers
     if (player.freezeTimer > 0) player.freezeTimer = Math.max(0, player.freezeTimer - dt);
     if (player.cooldownTimer > 0) player.cooldownTimer = Math.max(0, player.cooldownTimer - dt);
@@ -380,10 +591,11 @@ export class Game {
 
     if (player.isFrozen()) return;
 
-    // Movement only if there's a local binding (network players move via state sync, not here)
-    if (!binding) return;
+    const inputSrc = this._inputForSlot(slot);
+    const binding = this._bindingForSlot(slot);
+    if (!inputSrc || !binding) return;
 
-    const v = this.input.movement(binding);
+    const v = inputSrc.movement(binding);
     const old = { x: player.x, y: player.y };
     const speedMul = player.speedTimer > 0 ? 2 : 1;
     const desired = {
@@ -403,9 +615,10 @@ export class Game {
     for (let i = 0; i < this.players.length; i++) {
       const attacker = this.players[i];
       if (!attacker.alive) continue;
-      const binding = this._bindingFor(i);
-      if (!binding) continue;
-      if (!this.input.pushPressed(binding)) continue;
+      const inputSrc = this._inputForSlot(i);
+      const binding = this._bindingForSlot(i);
+      if (!inputSrc || !binding) continue;
+      if (!inputSrc.pushPressed(binding)) continue;
       if (!attacker.canPush() || attacker.isFrozen()) continue;
       let bestJ = -1, bestDist = PLAYER.pushRange;
       for (let j = 0; j < this.players.length; j++) {
@@ -604,6 +817,60 @@ export class Game {
     this.renderer.spawnPushParticles(pu.x, pu.y, player.color);
   }
 
+  _serializeState() {
+    return {
+      t: this.matchTime,
+      s: this.state,
+      cdr: this.countdownRemaining,
+      players: this.players.map(p => ({
+        x: p.x, y: p.y, score: p.score, alive: p.alive,
+        ft: p.freezeTimer, ct: p.cooldownTimer, st: p.shieldTimer,
+        sp: p.speedTimer, tp: p.teleportPunchReady,
+        psl: p.pushSlide ? {
+          fx: p.pushSlide.fromX, fy: p.pushSlide.fromY,
+          tx: p.pushSlide.toX, ty: p.pushSlide.toY,
+          e: p.pushSlide.elapsed, d: p.pushSlide.duration,
+        } : null,
+      })),
+      mines: this.mines.map(m => ({ x: m.x, y: m.y, age: m.age })),
+      powerUps: this.powerUps.map(pu => ({ x: pu.x, y: pu.y, type: pu.type })),
+      pushBonus: this._currentPushBonus(),
+      minePenalty: this._currentMinePenalty(),
+      target: this.ui.settings.targetScore,
+    };
+  }
+
+  _serializeBoxes() {
+    return this.boxes.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+  }
+
+  _applyState(snap) {
+    this.matchTime = snap.t;
+    this.state = snap.s;
+    this.countdownRemaining = snap.cdr;
+    for (let i = 0; i < snap.players.length; i++) {
+      const sp = snap.players[i];
+      const p = this.players[i];
+      if (!p) continue;
+      p.x = sp.x; p.y = sp.y; p.score = sp.score; p.alive = sp.alive;
+      p.freezeTimer = sp.ft; p.cooldownTimer = sp.ct; p.shieldTimer = sp.st;
+      p.speedTimer = sp.sp; p.teleportPunchReady = sp.tp;
+      p.pushSlide = sp.psl ? {
+        fromX: sp.psl.fx, fromY: sp.psl.fy,
+        toX: sp.psl.tx, toY: sp.psl.ty,
+        elapsed: sp.psl.e, duration: sp.psl.d,
+      } : null;
+    }
+    this.mines = snap.mines;
+    this.powerUps = snap.powerUps;
+    this._lastPushBonus = snap.pushBonus;
+    this._lastMinePenalty = snap.minePenalty;
+  }
+
+  _applyBoxes(boxData) {
+    this.boxes = boxData.map(b => new Box(b));
+  }
+
   _tickScoring(dt) {
     this.scoreAccumulator += dt;
     while (this.scoreAccumulator >= SCORING.tickInterval) {
@@ -689,12 +956,12 @@ export class Game {
 
   render() {
     this.renderer.clear();
-    if (this.state === STATE.MENU)                return this.ui.drawMenu(MENU_ITEMS, this.ui.menuSelection);
+    if (this.state === STATE.MENU)                return this.ui.drawMenu(MENU_ITEMS, this.ui.menuSelection, this.disconnectMessage);
     if (this.state === STATE.ONLINE_MENU)         return this.ui.drawOnlineMenu(this.ui.onlineMenuSelection || 0);
     if (this.state === STATE.ONLINE_HOST_SETUP)   return this.ui.drawHostSetup(this.ui.hostPlayerCount || 2);
     if (this.state === STATE.ONLINE_HOST_LOBBY)   return this.ui.drawHostLobby(this.ui.hostRoomCode, this.ui.hostConnectedCount, this.ui.hostPlayerCount);
     if (this.state === STATE.ONLINE_JOIN_INPUT)   return this.ui.drawJoinInput(this.ui.joinCodeInput, this.ui.joinError);
-    if (this.state === STATE.ONLINE_JOIN_WAITING) return this.ui.drawJoinWaiting();
+    if (this.state === STATE.ONLINE_JOIN_WAITING) return this.ui.drawJoinWaiting(this.ui.joinWaitingMessage);
     if (this.state === STATE.SETTINGS)            return this.ui.drawSettings(this.ui.settingsSelection);
     if (this.state === STATE.HOW_TO_PLAY)         return this.ui.drawHowToPlay();
 
