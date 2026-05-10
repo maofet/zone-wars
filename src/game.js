@@ -33,8 +33,10 @@ export class Game {
       red: new Zone(ZONES.red, 'red'),
       blue: new Zone(ZONES.blue, 'blue'),
     };
-    this.p1 = new Player('red', ZONES.red.color, ZONES.red.glow, STARTS.p1);
-    this.p2 = new Player('blue', ZONES.blue.color, ZONES.blue.glow, STARTS.p2);
+    this.players = [
+      new Player('red', ZONES.red.color, ZONES.red.glow, STARTS.p1),
+      new Player('blue', ZONES.blue.color, ZONES.blue.glow, STARTS.p2),
+    ];
     this.boxes = this._generateRandomBoxes();
 
     this.mines = [];
@@ -55,6 +57,9 @@ export class Game {
     });
   }
 
+  get p1() { return this.players[0]; }
+  get p2() { return this.players[1]; }
+
   start() {
     this.lastTimestamp = performance.now();
     requestAnimationFrame(this._frame);
@@ -73,8 +78,8 @@ export class Game {
 
   startMatch() {
     this.audio.init();
-    this.p1.reset(STARTS.p1);
-    this.p2.reset(STARTS.p2);
+    this.players[0].reset(STARTS.p1);
+    this.players[1].reset(STARTS.p2);
     this.boxes = this._generateRandomBoxes();
     this.mines = [];
     this.mineSpawnTimer = 0;
