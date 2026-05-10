@@ -14,6 +14,8 @@ import { hostRoom, joinRoom } from './net.js';
 
 // Provides the Input interface but reads from a per-slot record
 // of the last received network input. Used by host for non-local slots.
+// pushPressed/pausePressed are one-shot: returning true clears the flag so
+// the host triggers the action exactly once per joiner keypress.
 class NetworkInput {
   constructor(remoteInputs, slot) {
     this.remote = remoteInputs;
@@ -33,10 +35,14 @@ class NetworkInput {
     return { x: dx, y: dy };
   }
   pushPressed(binding) {
-    return !!this._state().pushPressed;
+    const r = this._state();
+    if (r.pushPressed) { r.pushPressed = false; return true; }
+    return false;
   }
   pausePressed() {
-    return !!this._state().pausePressed;
+    const r = this._state();
+    if (r.pausePressed) { r.pausePressed = false; return true; }
+    return false;
   }
 }
 
@@ -70,6 +76,8 @@ export class Game {
     this.remoteInputs = []; // for host mode: indexed by slot, each {held: Set, pushPressed: bool, pausePressed: bool}
     this._snapshotTimer = 0;
     this._inputSendTimer = 0;
+    this._pendingJoinerPush = false;
+    this._pendingJoinerPause = false;
     this.disconnectMessage = null;
     this.canvasSize = MAP_SIZES[playerCount] || MAP_SIZES[2];
     this.entityScaling = ENTITY_SCALING[playerCount] || ENTITY_SCALING[2];
@@ -127,6 +135,10 @@ export class Game {
       if (this.input.pressed.has('Escape')) {
         this._endRoomAndReturnToMenu();
       } else {
+        // Latch one-shot events every frame so we never miss a press
+        // that happens between throttled sends.
+        if (this.input.pushPressed(KEYS.p1)) this._pendingJoinerPush = true;
+        if (this.input.pausePressed()) this._pendingJoinerPause = true;
         this._inputSendTimer += dt;
         if (this._inputSendTimer >= 1 / 30) {
           this._inputSendTimer = 0;
@@ -157,9 +169,11 @@ export class Game {
     this.room.send({
       type: 'input',
       held: [...this.input.held],
-      pushPressed: this.input.pushPressed(KEYS.p1),
-      pausePressed: this.input.pausePressed(),
+      pushPressed: this._pendingJoinerPush,
+      pausePressed: this._pendingJoinerPause,
     });
+    this._pendingJoinerPush = false;
+    this._pendingJoinerPause = false;
   }
 
   // -------- state transitions --------
