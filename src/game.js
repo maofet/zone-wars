@@ -997,6 +997,22 @@ export class Game {
 
   render() {
     this.renderer.clear();
+    const inMatch = (
+      this.state === STATE.COUNTDOWN ||
+      this.state === STATE.PLAYING ||
+      this.state === STATE.PAUSED ||
+      this.state === STATE.GAME_OVER
+    );
+    if (inMatch) {
+      this.ui.showHUD();
+      this.ui.updateHUD(
+        this.players, this.ui.settings.targetScore,
+        this.matchTime, this._currentPushBonus(), this._currentMinePenalty(),
+        this.ui.settings.matchDuration ?? 5,
+      );
+    } else {
+      this.ui.hideHUD();
+    }
     if (this.state === STATE.MENU)                return this.ui.drawMenu(MENU_ITEMS, this.ui.menuSelection, this.disconnectMessage);
     if (this.state === STATE.ONLINE_MENU)         return this.ui.drawOnlineMenu(this.ui.onlineMenuSelection || 0);
     if (this.state === STATE.ONLINE_HOST_SETUP)   return this.ui.drawHostSetup(this.ui.hostPlayerCount || 2);
@@ -1013,11 +1029,6 @@ export class Game {
     for (const pu of this.powerUps) this.renderer.drawPowerUp(pu);
     for (const p of this.players) if (p.alive) this.renderer.drawPlayer(p);
     this.renderer.drawParticles();
-    this.renderer.drawHUD(
-      this.players, this.ui.settings.targetScore,
-      this.matchTime, this._currentPushBonus(), this._currentMinePenalty(),
-      this.ui.settings.matchDuration ?? 5,
-    );
 
     if (this.state === STATE.COUNTDOWN) {
       const n = Math.ceil(this.countdownRemaining);

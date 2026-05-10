@@ -1,4 +1,62 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; background: #050510; color: #e8e8f0; font-family: system-ui, sans-serif; }
-#app { display: flex; align-items: center; justify-content: center; min-height: 100%; }
-#game { border: 1px solid #1a1a3a; box-shadow: 0 0 30px rgba(60, 100, 200, 0.2); display: block; }
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  gap: 14px;
+  padding: 12px 0;
+}
+
+#game {
+  border: 1px solid #1a1a3a;
+  box-shadow: 0 0 30px rgba(60, 100, 200, 0.2);
+  display: block;
+}
+
+#hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+#hud.hidden { display: none; }
+
+.hud-timer {
+  font-size: 64px;
+  font-weight: 800;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  text-shadow: 0 0 18px rgba(60, 180, 255, 0.55);
+  line-height: 1;
+}
+
+.hud-scores {
+  display: flex;
+  gap: 28px;
+  align-items: baseline;
+  margin-top: 4px;
+}
+
+.hud-score {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-score.dead {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.hud-info {
+  font-size: 13px;
+  color: #8088a8;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}

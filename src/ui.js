@@ -220,6 +220,47 @@ export class UI {
     this.saveSettings();
   }
 
+  showHUD() {
+    const hud = document.getElementById('hud');
+    if (hud) hud.classList.remove('hidden');
+  }
+
+  hideHUD() {
+    const hud = document.getElementById('hud');
+    if (hud) hud.classList.add('hidden');
+  }
+
+  updateHUD(players, target, matchTime, pushBonusTenths, minePenaltyTenths, matchDurationMinutes) {
+    const timerEl = document.getElementById('hud-timer');
+    const scoresEl = document.getElementById('hud-scores');
+    const infoEl = document.getElementById('hud-info');
+    if (!timerEl || !scoresEl || !infoEl) return;
+    let timer;
+    if (matchDurationMinutes > 0) {
+      const remaining = Math.max(0, matchDurationMinutes * 60 - matchTime);
+      const m = Math.floor(remaining / 60);
+      const s = Math.floor(remaining % 60);
+      timer = `${m}:${String(s).padStart(2, '0')}`;
+    } else {
+      const m = Math.floor(matchTime / 60);
+      const s = Math.floor(matchTime % 60);
+      timer = `${m}:${String(s).padStart(2, '0')}`;
+    }
+    timerEl.textContent = timer;
+    scoresEl.innerHTML = '';
+    for (const p of players) {
+      const span = document.createElement('span');
+      span.className = 'hud-score' + (p.alive ? '' : ' dead');
+      span.style.color = p.color;
+      span.style.textShadow = `0 0 10px ${p.glow}`;
+      span.textContent = (p.score / 10).toFixed(1);
+      scoresEl.appendChild(span);
+    }
+    const push = (pushBonusTenths / 10).toFixed(1);
+    const mine = (minePenaltyTenths / 10).toFixed(1);
+    infoEl.textContent = `first to ${target}   ·   push +${push}   ·   mine -${mine}`;
+  }
+
   drawOnlineMenu(selectedIndex) {
     const ctx = this.renderer.ctx;
     const cw = this.renderer.canvas.width;
