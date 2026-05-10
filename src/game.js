@@ -499,7 +499,7 @@ export class Game {
   }
 
   _updateSettings() {
-    const items = 5; // target, sound, push max, mine max, back
+    const items = 6; // target, sound, push max, mine max, match duration, back
     if (this.input.pressed.has('ArrowUp'))   this.ui.settingsSelection = (this.ui.settingsSelection - 1 + items) % items;
     if (this.input.pressed.has('ArrowDown')) this.ui.settingsSelection = (this.ui.settingsSelection + 1) % items;
     if (this.ui.settingsSelection === 0) {
@@ -518,7 +518,11 @@ export class Game {
       if (this.input.pressed.has('ArrowLeft'))  this.ui.cycleMineMax(-1);
       if (this.input.pressed.has('ArrowRight')) this.ui.cycleMineMax(+1);
     }
-    if (this.ui.settingsSelection === 4 && this.input.pressed.has('Enter')) {
+    if (this.ui.settingsSelection === 4) {
+      if (this.input.pressed.has('ArrowLeft'))  this.ui.cycleMatchDuration(-1);
+      if (this.input.pressed.has('ArrowRight')) this.ui.cycleMatchDuration(+1);
+    }
+    if (this.ui.settingsSelection === 5 && this.input.pressed.has('Enter')) {
       this.state = STATE.MENU;
     }
     if (this.input.pressed.has('Escape')) this.state = STATE.MENU;
