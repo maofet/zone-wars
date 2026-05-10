@@ -19,6 +19,7 @@ export class Player {
     this.speedTimer = 0; // seconds remaining of speed power-up (2x movement)
     this.teleportPunchReady = false; // single-use: next push teleports target to their own zone
     this.alive = true;
+    this.avatar = '★'; // default; assigned at avatar-select step
   }
 
   isFrozen() {

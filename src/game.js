@@ -1,7 +1,7 @@
 import {
   ZONES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
   MINE, POWERUP, RANDOM_BOXES, LOSE_SCORE_TENTHS, ZONE_COLORS, computeZonePositions,
-  MAP_SIZES, ENTITY_SCALING,
+  MAP_SIZES, ENTITY_SCALING, AVATARS,
 } from './config.js';
 import { Player } from './entities/player.js';
 import { Box } from './entities/box.js';
@@ -55,6 +55,7 @@ const STATE = {
   ONLINE_JOIN_WAITING: 'online_join_waiting',
   SETTINGS: 'settings',
   HOW_TO_PLAY: 'how_to_play',
+  AVATAR_SELECT: 'avatar_select',
   COUNTDOWN: 'countdown',
   PLAYING: 'playing',
   PAUSED: 'paused',
@@ -79,6 +80,11 @@ export class Game {
     this._pendingJoinerPush = false;
     this._pendingJoinerPause = false;
     this.disconnectMessage = null;
+    this.avatarCursor = 0;        // 0..8 grid index for the local user
+    this.localAvatarPicked = false; // local user has confirmed?
+    this.pendingAvatars = [];     // for host-side coordination of all slots' picks
+    this.localAvatarSlot = 0;     // for local 2P, which slot is currently picking
+    this.localAvatarMode = 'online'; // 'local' (for hot-seat) or 'online'
     this.canvasSize = MAP_SIZES[playerCount] || MAP_SIZES[2];
     this.entityScaling = ENTITY_SCALING[playerCount] || ENTITY_SCALING[2];
     // Resize the canvas DOM element to match player count
@@ -269,6 +275,7 @@ export class Game {
       case STATE.ONLINE_JOIN_WAITING: return this._updateOnlineJoinWaiting();
       case STATE.SETTINGS:            return this._updateSettings();
       case STATE.HOW_TO_PLAY:         return this._updateHowToPlay();
+      case STATE.AVATAR_SELECT:       return this._updateAvatarSelect();
       case STATE.COUNTDOWN:           return this._updateCountdown(dt);
       case STATE.PLAYING:             return this._updatePlaying(dt);
       case STATE.PAUSED:              return this._updatePaused();
@@ -287,11 +294,19 @@ export class Game {
     }
     if (this.input.pressed.has('Enter') || this.input.pressed.has('Space')) {
       const choice = MENU_ITEMS[this.ui.menuSelection];
-      if (choice === 'Local 2-Player') this.startMatch();
+      if (choice === 'Local 2-Player') this._startLocalAvatarSelect();
       else if (choice === 'Online') this.state = STATE.ONLINE_MENU;
       else if (choice === 'Settings') this.state = STATE.SETTINGS;
       else if (choice === 'How to Play') this.state = STATE.HOW_TO_PLAY;
     }
+  }
+
+  _startLocalAvatarSelect() {
+    this.localAvatarMode = 'local';
+    this.localAvatarSlot = 0;
+    this.avatarCursor = 0;
+    this.pendingAvatars = new Array(2).fill(null);
+    this.state = STATE.AVATAR_SELECT;
   }
 
   _updateOnlineMenu() {
@@ -363,6 +378,9 @@ export class Game {
                 pushPressed: msg.pushPressed,
                 pausePressed: msg.pausePressed,
               };
+            } else if (msg.type === 'avatar') {
+              this.pendingAvatars[slot] = AVATARS[msg.avatarIndex] || AVATARS[0];
+              this._checkAllAvatarsAndStart();
             }
           } catch (e) { console.warn('bad msg', e); }
         });
@@ -396,11 +414,20 @@ export class Game {
 
   _updateOnlineHostLobby() {
     if (this.input.pressed.has('Enter') && this.ui.hostConnectedCount >= 2) {
-      this._startOnlineHostMatch();
+      this._startOnlineAvatarSelect();
     }
     if (this.input.pressed.has('Escape')) {
       this._endRoomAndReturnToMenu();
     }
+  }
+
+  _startOnlineAvatarSelect() {
+    this.localAvatarMode = 'online';
+    this.avatarCursor = 0;
+    this.localAvatarPicked = false;
+    this.pendingAvatars = new Array(this.ui.hostPlayerCount).fill(null);
+    this.state = STATE.AVATAR_SELECT;
+    if (this.room) this.room.broadcast({ type: 'go_to_avatar', playerCount: this.ui.hostPlayerCount });
   }
 
   _startOnlineHostMatch() {
@@ -480,6 +507,12 @@ export class Game {
           this.localSlot = msg.slot;
           this._reinitForPlayerCount(msg.playerCount);
           this.ui.joinWaitingMessage = `Connected as player ${msg.slot + 1}. Waiting for host to start...`;
+        } else if (msg.type === 'go_to_avatar') {
+          this._reinitForPlayerCount(msg.playerCount);
+          this.localAvatarMode = 'online';
+          this.avatarCursor = 0;
+          this.localAvatarPicked = false;
+          this.state = STATE.AVATAR_SELECT;
         } else if (msg.type === 'start') {
           this._reinitForPlayerCount(msg.playerCount);
           this._applyBoxes(msg.boxes);
@@ -530,6 +563,74 @@ export class Game {
 
   _updateHowToPlay() {
     if (this.input.pressed.size > 0) this.state = STATE.MENU;
+  }
+
+  _updateAvatarSelect() {
+    // Cursor navigation: WASD or Arrow keys
+    const cols = 3;
+    const rows = 3;
+    const left   = this.input.pressed.has('ArrowLeft')  || this.input.pressed.has('KeyA');
+    const right  = this.input.pressed.has('ArrowRight') || this.input.pressed.has('KeyD');
+    const up     = this.input.pressed.has('ArrowUp')    || this.input.pressed.has('KeyW');
+    const down   = this.input.pressed.has('ArrowDown')  || this.input.pressed.has('KeyS');
+    const confirm = this.input.pressed.has('Enter') || this.input.pressed.has('Space') || this.input.pressed.has('ShiftLeft');
+    let c = this.avatarCursor;
+    if (left)  c = (Math.floor(c / cols) * cols) + ((c % cols + cols - 1) % cols);
+    if (right) c = (Math.floor(c / cols) * cols) + ((c % cols + 1) % cols);
+    if (up)    c = ((Math.floor(c / cols) + rows - 1) % rows) * cols + (c % cols);
+    if (down)  c = ((Math.floor(c / cols) + 1) % rows) * cols + (c % cols);
+    this.avatarCursor = c;
+
+    if (this.input.pressed.has('Escape')) {
+      if (this.localAvatarMode === 'online') {
+        this._endRoomAndReturnToMenu();
+      } else {
+        this.state = STATE.MENU;
+      }
+      return;
+    }
+
+    if (this.localAvatarMode === 'local') {
+      // Sequential: P1 first, then P2. Only one slot selects at a time.
+      if (confirm) {
+        this.pendingAvatars[this.localAvatarSlot] = AVATARS[this.avatarCursor];
+        this.localAvatarSlot += 1;
+        this.avatarCursor = (this.avatarCursor + 1) % AVATARS.length; // jump cursor for variety
+        if (this.localAvatarSlot >= 2) {
+          this._applyAvatarsAndStart();
+        }
+      }
+    } else {
+      // Online: local user picks once, sends to host
+      if (confirm && !this.localAvatarPicked) {
+        this.localAvatarPicked = true;
+        if (this.mode === 'host') {
+          this.pendingAvatars[0] = AVATARS[this.avatarCursor];
+          this._checkAllAvatarsAndStart();
+        } else if (this.mode === 'joiner' && this.room) {
+          this.room.send({ type: 'avatar', avatarIndex: this.avatarCursor });
+        }
+      }
+    }
+  }
+
+  _checkAllAvatarsAndStart() {
+    if (!this.pendingAvatars || this.pendingAvatars.length === 0) return;
+    if (this.pendingAvatars.every(a => a !== null && a !== undefined)) {
+      this._applyAvatarsAndStart();
+    }
+  }
+
+  _applyAvatarsAndStart() {
+    for (let i = 0; i < this.players.length; i++) {
+      if (this.pendingAvatars[i]) this.players[i].avatar = this.pendingAvatars[i];
+    }
+    if (this.localAvatarMode === 'online' && this.mode === 'host') {
+      this._startOnlineHostMatch();
+    } else if (this.localAvatarMode === 'local') {
+      this.startMatch();
+    }
+    // joiner: waits for snapshot to receive avatars (already in player snapshot)
   }
 
   _updateCountdown(dt) {
@@ -856,7 +957,7 @@ export class Game {
       players: this.players.map(p => ({
         x: p.x, y: p.y, score: p.score, alive: p.alive,
         ft: p.freezeTimer, ct: p.cooldownTimer, st: p.shieldTimer,
-        sp: p.speedTimer, tp: p.teleportPunchReady,
+        sp: p.speedTimer, tp: p.teleportPunchReady, av: p.avatar,
         psl: p.pushSlide ? {
           fx: p.pushSlide.fromX, fy: p.pushSlide.fromY,
           tx: p.pushSlide.toX, ty: p.pushSlide.toY,
@@ -888,6 +989,7 @@ export class Game {
       p.x = sp.x; p.y = sp.y; p.score = sp.score; p.alive = sp.alive;
       p.freezeTimer = sp.ft; p.cooldownTimer = sp.ct; p.shieldTimer = sp.st;
       p.speedTimer = sp.sp; p.teleportPunchReady = sp.tp;
+      p.avatar = sp.av || p.avatar;
       p.pushSlide = sp.psl ? {
         fromX: sp.psl.fx, fromY: sp.psl.fy,
         toX: sp.psl.tx, toY: sp.psl.ty,
@@ -1020,6 +1122,22 @@ export class Game {
 
   render() {
     this.renderer.clear();
+
+    if (this.state === STATE.AVATAR_SELECT) {
+      this.ui.hideHUD();
+      let label, slotIdx;
+      if (this.localAvatarMode === 'local') {
+        slotIdx = this.localAvatarSlot;
+        label = `PLAYER ${slotIdx + 1}: pick your avatar`;
+      } else {
+        slotIdx = this.localSlot ?? 0;
+        label = this.localAvatarPicked ? `Waiting for other players...` : `Pick your avatar`;
+      }
+      const color = this.players[slotIdx]?.color || '#ffffff';
+      const glow = this.players[slotIdx]?.glow || '#ffffff';
+      return this.ui.drawAvatarSelect(this.avatarCursor, color, glow, label, this.localAvatarPicked);
+    }
+
     const inMatch = (
       this.state === STATE.COUNTDOWN ||
       this.state === STATE.PLAYING ||

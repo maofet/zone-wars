@@ -84,6 +84,17 @@ export class Renderer {
     ctx.stroke();
     ctx.restore();
 
+    // avatar character
+    if (player.avatar) {
+      ctx.save();
+      ctx.fillStyle = '#0a0a18';
+      ctx.font = 'bold 18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(player.avatar, player.x, player.y + 1);
+      ctx.restore();
+    }
+
     // cooldown ring (outer arc, fills back over PLAYER.pushCooldown seconds)
     if (player.cooldownTimer > 0) {
       const fraction = 1 - player.cooldownTimer / PLAYER.pushCooldown;

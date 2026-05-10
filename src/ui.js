@@ -1,4 +1,4 @@
-import { COLORS, SCORING, STORAGE_KEY, MATCH_DURATION_OPTIONS, DEFAULT_MATCH_DURATION } from './config.js';
+import { COLORS, SCORING, STORAGE_KEY, MATCH_DURATION_OPTIONS, DEFAULT_MATCH_DURATION, AVATARS } from './config.js';
 
 const TARGET_OPTIONS = Array.from({ length: 10 }, (_, i) => 25 * (i + 1)); // 25..250
 const PUSH_MAX_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1); // 1..10
@@ -410,6 +410,66 @@ export class UI {
     ctx.fillStyle = COLORS.textDim;
     ctx.font = '14px system-ui, sans-serif';
     ctx.fillText('Esc to cancel', cw / 2, ch - 40);
+    ctx.restore();
+  }
+
+  drawAvatarSelect(cursor, playerColor, playerGlow, label, picked) {
+    const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = playerColor;
+    ctx.shadowColor = playerGlow;
+    ctx.shadowBlur = 18;
+    ctx.font = 'bold 36px system-ui, sans-serif';
+    ctx.fillText(label, cw / 2, 100);
+    ctx.shadowBlur = 0;
+    // 3x3 grid
+    const cellSize = 100;
+    const gap = 20;
+    const totalSize = cellSize * 3 + gap * 2;
+    const startX = cw / 2 - totalSize / 2;
+    const startY = ch / 2 - totalSize / 2 + 20;
+    for (let i = 0; i < AVATARS.length; i++) {
+      const cx = startX + (i % 3) * (cellSize + gap);
+      const cy = startY + Math.floor(i / 3) * (cellSize + gap);
+      const isCursor = i === cursor;
+      // cell background
+      ctx.fillStyle = isCursor ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)';
+      ctx.fillRect(cx, cy, cellSize, cellSize);
+      // cell border (cursor highlights in player color)
+      if (isCursor) {
+        ctx.shadowColor = playerGlow;
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = playerColor;
+        ctx.lineWidth = 3;
+      } else {
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#3a3a5a';
+        ctx.lineWidth = 1.5;
+      }
+      ctx.strokeRect(cx + 1, cy + 1, cellSize - 2, cellSize - 2);
+      // avatar character in player color
+      ctx.shadowBlur = isCursor ? 12 : 0;
+      ctx.shadowColor = isCursor ? playerGlow : 'transparent';
+      ctx.fillStyle = playerColor;
+      ctx.font = 'bold 56px system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(AVATARS[i], cx + cellSize / 2, cy + cellSize / 2 + 4);
+      ctx.textBaseline = 'alphabetic';
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = COLORS.textDim;
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText('WASD/Arrows to move - Enter/Space/Shift to confirm - Esc to cancel', cw / 2, ch - 40);
+    if (picked) {
+      ctx.fillStyle = '#40d060';
+      ctx.font = 'bold 16px system-ui, sans-serif';
+      ctx.fillText('YOUR AVATAR PICKED. Waiting for others...', cw / 2, ch - 70);
+    }
     ctx.restore();
   }
 }

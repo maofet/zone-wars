@@ -161,3 +161,5 @@ export const KEYS = {
 };
 
 export const STORAGE_KEY = 'zoneWarsSettings';
+
+export const AVATARS = ['★', '♥', '♛', '⚡', '☠', '◆', '▲', '●', '✦'];
