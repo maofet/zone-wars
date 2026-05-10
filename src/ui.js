@@ -1,8 +1,8 @@
 import { COLORS, SCORING, STORAGE_KEY, MATCH_DURATION_OPTIONS, DEFAULT_MATCH_DURATION } from './config.js';
 
-const TARGET_OPTIONS = [50, 100, 200];
-const PUSH_MAX_OPTIONS = [3, 5, 7, 10];
-const MINE_MAX_OPTIONS = [3, 5, 7, 10];
+const TARGET_OPTIONS = Array.from({ length: 10 }, (_, i) => 25 * (i + 1)); // 25..250
+const PUSH_MAX_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1); // 1..10
+const MINE_MAX_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1); // 1..10
 const DEFAULT_PUSH_MAX = 5;
 const DEFAULT_MINE_MAX = 5;
 
