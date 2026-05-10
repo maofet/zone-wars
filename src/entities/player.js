@@ -18,6 +18,7 @@ export class Player {
     this.shieldTimer = 0; // seconds remaining of shield power-up
     this.speedTimer = 0; // seconds remaining of speed power-up (2x movement)
     this.teleportPunchReady = false; // single-use: next push teleports target to their own zone
+    this.alive = true;
   }
 
   isFrozen() {
@@ -41,5 +42,6 @@ export class Player {
     this.shieldTimer = 0;
     this.speedTimer = 0;
     this.teleportPunchReady = false;
+    this.alive = true;
   }
 }

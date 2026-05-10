@@ -70,6 +70,35 @@ export const ZONES = {
   blue: { x: 800, y: 270, radius: 80, color: '#30b0ff', glow: '#60c8ff' },
 };
 
+export const ZONE_COLORS = [
+  { color: '#ff3060', glow: '#ff6080', name: 'red' },
+  { color: '#30b0ff', glow: '#60c8ff', name: 'blue' },
+  { color: '#40d060', glow: '#70e090', name: 'green' },
+  { color: '#ffd040', glow: '#ffe080', name: 'yellow' },
+  { color: '#d040ff', glow: '#e080ff', name: 'purple' },
+  { color: '#40e0d0', glow: '#80f0e0', name: 'cyan' },
+];
+
+// Returns N zone center positions distributed around the play area perimeter.
+export function computeZonePositions(playerCount, canvasW, canvasH, zoneRadius) {
+  const cx = canvasW / 2;
+  const cy = canvasH / 2;
+  const rx = canvasW / 2 - zoneRadius - 20;
+  const ry = canvasH / 2 - zoneRadius - 20;
+  if (playerCount === 2) {
+    return [
+      { x: cx - rx, y: cy },
+      { x: cx + rx, y: cy },
+    ];
+  }
+  const positions = [];
+  for (let i = 0; i < playerCount; i++) {
+    const angle = -Math.PI / 2 + (i / playerCount) * Math.PI * 2;
+    positions.push({ x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) });
+  }
+  return positions;
+}
+
 export const STARTS = {
   p1: { x: 480, y: 60 },
   p2: { x: 480, y: 480 },

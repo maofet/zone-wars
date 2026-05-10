@@ -224,17 +224,21 @@ export class Renderer {
     }
   }
 
-  drawHUD(p1, p2, target, matchTime = 0, pushBonusTenths = 10, minePenaltyTenths = 10) {
+  drawHUD(players, target, matchTime = 0, pushBonusTenths = 10, minePenaltyTenths = 10) {
     const ctx = this.ctx;
     ctx.save();
-    ctx.fillStyle = COLORS.textBright;
     ctx.font = 'bold 24px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#ff3060';
-    ctx.shadowBlur = 8;
-    ctx.fillText((p1.score / 10).toFixed(1), CANVAS.width / 2 - 60, 36);
-    ctx.shadowColor = '#30b0ff';
-    ctx.fillText((p2.score / 10).toFixed(1), CANVAS.width / 2 + 60, 36);
+    const n = players.length;
+    const spacing = Math.min(120, (CANVAS.width - 120) / n);
+    const startX = CANVAS.width / 2 - ((n - 1) * spacing) / 2;
+    for (let i = 0; i < n; i++) {
+      const p = players[i];
+      ctx.shadowColor = p.glow;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = p.alive ? '#ffffff' : '#666688';
+      ctx.fillText((p.score / 10).toFixed(1), startX + i * spacing, 36);
+    }
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.textDim;
     ctx.font = '14px system-ui, sans-serif';
