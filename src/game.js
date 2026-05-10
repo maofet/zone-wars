@@ -150,7 +150,15 @@ export class Game {
     } else {
       // Local or host: full update + render.
       this.update(dt);
-      if (this.mode === 'host' && this.state === STATE.PLAYING) {
+      // Host broadcasts during any in-match state so joiners see countdown,
+      // pause, and game-over screens too.
+      const inMatch = (
+        this.state === STATE.COUNTDOWN ||
+        this.state === STATE.PLAYING ||
+        this.state === STATE.PAUSED ||
+        this.state === STATE.GAME_OVER
+      );
+      if (this.mode === 'host' && inMatch) {
         this._snapshotTimer += dt;
         if (this._snapshotTimer >= 1 / 20) {
           this._snapshotTimer = 0;
@@ -856,6 +864,8 @@ export class Game {
       pushBonus: this._currentPushBonus(),
       minePenalty: this._currentMinePenalty(),
       target: this.ui.settings.targetScore,
+      matchDuration: this.ui.settings.matchDuration ?? 5,
+      winnerSlot: this.winner ? this.players.indexOf(this.winner) : -1,
     };
   }
 
@@ -884,6 +894,9 @@ export class Game {
     this.powerUps = snap.powerUps;
     this._lastPushBonus = snap.pushBonus;
     this._lastMinePenalty = snap.minePenalty;
+    this.winner = (typeof snap.winnerSlot === 'number' && snap.winnerSlot >= 0)
+      ? this.players[snap.winnerSlot]
+      : null;
   }
 
   _applyBoxes(boxData) {
@@ -968,6 +981,12 @@ export class Game {
     this.winner = winner;
     this.state = STATE.GAME_OVER;
     this.audio.win();
+    // Push a final snapshot immediately so joiners see the result without
+    // waiting for the next throttled tick (which may not fire if state is
+    // not PLAYING anymore in some race).
+    if (this.mode === 'host' && this.room) {
+      try { this.room.broadcast({ type: 'state', snap: this._serializeState() }); } catch {}
+    }
   }
 
   _updatePaused() {
