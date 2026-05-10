@@ -69,6 +69,7 @@ export class Game {
     this.localSlot = 0; // which slot this client controls (0 for host or local; assigned by host for joiners)
     this.remoteInputs = []; // for host mode: indexed by slot, each {held: Set, pushPressed: bool, pausePressed: bool}
     this._snapshotTimer = 0;
+    this._inputSendTimer = 0;
     this.disconnectMessage = null;
     this.canvasSize = MAP_SIZES[playerCount] || MAP_SIZES[2];
     this.entityScaling = ENTITY_SCALING[playerCount] || ENTITY_SCALING[2];
@@ -121,12 +122,16 @@ export class Game {
     this.lastTimestamp = now;
 
     if (this.mode === 'joiner') {
-      // Joiner: send local input every frame, animate particles, render last received state.
+      // Joiner: send local input ~30Hz, animate particles, render last received state.
       // Allow Escape to disconnect and return to menu.
       if (this.input.pressed.has('Escape')) {
         this._endRoomAndReturnToMenu();
       } else {
-        this._sendJoinerInput();
+        this._inputSendTimer += dt;
+        if (this._inputSendTimer >= 1 / 30) {
+          this._inputSendTimer = 0;
+          this._sendJoinerInput();
+        }
         this.renderer.updateParticles(dt);
         this.render();
       }
@@ -135,7 +140,7 @@ export class Game {
       this.update(dt);
       if (this.mode === 'host' && this.state === STATE.PLAYING) {
         this._snapshotTimer += dt;
-        if (this._snapshotTimer >= 1 / 30) {
+        if (this._snapshotTimer >= 1 / 20) {
           this._snapshotTimer = 0;
           if (this.room) this.room.broadcast({ type: 'state', snap: this._serializeState() });
         }
@@ -934,7 +939,15 @@ export class Game {
     }
     // Last-standing win
     const alive = this.players.filter(p => p.alive);
-    if (alive.length === 1 && this.players.length > 1) this._endMatch(alive[0]);
+    if (alive.length === 1 && this.players.length > 1) { this._endMatch(alive[0]); return; }
+    // Timer-based win: if match duration is set and elapsed, highest score among alive wins
+    const durationMin = this.ui.settings.matchDuration ?? 5;
+    if (durationMin > 0 && this.matchTime >= durationMin * 60) {
+      const candidates = alive.length > 0 ? alive : this.players;
+      let best = candidates[0];
+      for (const p of candidates) if (p.score > best.score) best = p;
+      this._endMatch(best);
+    }
   }
 
   _endMatch(winner) {
@@ -989,6 +1002,7 @@ export class Game {
     this.renderer.drawHUD(
       this.players, this.ui.settings.targetScore,
       this.matchTime, this._currentPushBonus(), this._currentMinePenalty(),
+      this.ui.settings.matchDuration ?? 5,
     );
 
     if (this.state === STATE.COUNTDOWN) {
