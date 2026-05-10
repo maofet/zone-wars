@@ -1,4 +1,4 @@
-import { CANVAS, COLORS, SCORING, STORAGE_KEY } from './config.js';
+import { COLORS, SCORING, STORAGE_KEY } from './config.js';
 
 const TARGET_OPTIONS = [50, 100, 200];
 const PUSH_MAX_OPTIONS = [3, 5, 7, 10];
@@ -41,15 +41,17 @@ export class UI {
 
   drawMenu(items, selectedIndex) {
     const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
     ctx.save();
     ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = COLORS.textBright;
     ctx.textAlign = 'center';
     ctx.font = 'bold 72px system-ui, sans-serif';
     ctx.shadowColor = '#30b0ff';
     ctx.shadowBlur = 24;
-    ctx.fillText('ZONE WARS', CANVAS.width / 2, 140);
+    ctx.fillText('ZONE WARS', cw / 2, 140);
     ctx.shadowBlur = 0;
 
     items.forEach((item, i) => {
@@ -63,20 +65,22 @@ export class UI {
       } else {
         ctx.shadowBlur = 0;
       }
-      ctx.fillText(item, CANVAS.width / 2, y);
+      ctx.fillText(item, cw / 2, y);
     });
     ctx.restore();
   }
 
   drawSettings(selectedIndex) {
     const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
     ctx.save();
     ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = COLORS.textBright;
     ctx.textAlign = 'center';
     ctx.font = 'bold 48px system-ui, sans-serif';
-    ctx.fillText('SETTINGS', CANVAS.width / 2, 100);
+    ctx.fillText('SETTINGS', cw / 2, 100);
 
     const rows = [
       `Target score: ${this.settings.targetScore}  (Left/Right to change)`,
@@ -90,23 +94,25 @@ export class UI {
       const selected = i === selectedIndex;
       ctx.font = selected ? 'bold 22px system-ui, sans-serif' : '20px system-ui, sans-serif';
       ctx.fillStyle = selected ? '#ffffff' : COLORS.textDim;
-      ctx.fillText(row, CANVAS.width / 2, y);
+      ctx.fillText(row, cw / 2, y);
     });
     ctx.font = '14px system-ui, sans-serif';
     ctx.fillStyle = COLORS.textDim;
-    ctx.fillText('Up/Down to navigate, Esc to go back', CANVAS.width / 2, CANVAS.height - 40);
+    ctx.fillText('Up/Down to navigate, Esc to go back', cw / 2, ch - 40);
     ctx.restore();
   }
 
   drawHowToPlay() {
     const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
     ctx.save();
     ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = COLORS.textBright;
     ctx.textAlign = 'center';
     ctx.font = 'bold 48px system-ui, sans-serif';
-    ctx.fillText('HOW TO PLAY', CANVAS.width / 2, 80);
+    ctx.fillText('HOW TO PLAY', cw / 2, 80);
     ctx.font = '18px system-ui, sans-serif';
     const lines = [
       'Two players share one keyboard.',
@@ -127,29 +133,31 @@ export class UI {
     ];
     lines.forEach((line, i) => {
       ctx.fillStyle = i === lines.length - 1 ? COLORS.textDim : COLORS.textBright;
-      ctx.fillText(line, CANVAS.width / 2, 140 + i * 30);
+      ctx.fillText(line, cw / 2, 140 + i * 30);
     });
     ctx.restore();
   }
 
   drawGameOver(winnerColor, winnerName, p1Score, p2Score) {
     const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = winnerColor;
     ctx.shadowColor = winnerColor;
     ctx.shadowBlur = 20;
     ctx.textAlign = 'center';
     ctx.font = 'bold 72px system-ui, sans-serif';
-    ctx.fillText(`${winnerName} WINS!`, CANVAS.width / 2, 220);
+    ctx.fillText(`${winnerName} WINS!`, cw / 2, ch / 2 - 50);
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.textBright;
     ctx.font = '32px system-ui, sans-serif';
-    ctx.fillText(`${(p1Score / 10).toFixed(1)} : ${(p2Score / 10).toFixed(1)}`, CANVAS.width / 2, 280);
+    ctx.fillText(`${(p1Score / 10).toFixed(1)} : ${(p2Score / 10).toFixed(1)}`, cw / 2, ch / 2 + 10);
     ctx.font = '20px system-ui, sans-serif';
     ctx.fillStyle = COLORS.textDim;
-    ctx.fillText('Enter = Restart    Esc = Main Menu', CANVAS.width / 2, 360);
+    ctx.fillText('Enter = Restart    Esc = Main Menu', cw / 2, ch / 2 + 90);
     ctx.restore();
   }
 

@@ -1,5 +1,22 @@
 export const CANVAS = { width: 960, height: 540 };
 
+// Per-player-count map sizes and entity tuning.
+export const MAP_SIZES = {
+  2: { width: 960,  height: 540 },
+  3: { width: 1080, height: 600 },
+  4: { width: 1200, height: 660 },
+  5: { width: 1320, height: 720 },
+  6: { width: 1440, height: 780 },
+};
+
+export const ENTITY_SCALING = {
+  2: { boxes: 13, minesPerSpawn: 2, minesMax: 20 },
+  3: { boxes: 15, minesPerSpawn: 2, minesMax: 25 },
+  4: { boxes: 17, minesPerSpawn: 3, minesMax: 30 },
+  5: { boxes: 19, minesPerSpawn: 3, minesMax: 35 },
+  6: { boxes: 21, minesPerSpawn: 4, minesMax: 40 },
+};
+
 export const GRID = { cellSize: 40 };
 
 export const PLAYER = {

@@ -1,4 +1,4 @@
-import { CANVAS, COLORS, GRID, PLAYER } from './config.js';
+import { COLORS, GRID, PLAYER } from './config.js';
 
 export class Renderer {
   constructor(canvas) {
@@ -9,20 +9,20 @@ export class Renderer {
 
   clear() {
     this.ctx.fillStyle = COLORS.bg;
-    this.ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   drawGrid() {
     this.ctx.strokeStyle = COLORS.grid;
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
-    for (let x = 0; x <= CANVAS.width; x += GRID.cellSize) {
+    for (let x = 0; x <= this.canvas.width; x += GRID.cellSize) {
       this.ctx.moveTo(x + 0.5, 0);
-      this.ctx.lineTo(x + 0.5, CANVAS.height);
+      this.ctx.lineTo(x + 0.5, this.canvas.height);
     }
-    for (let y = 0; y <= CANVAS.height; y += GRID.cellSize) {
+    for (let y = 0; y <= this.canvas.height; y += GRID.cellSize) {
       this.ctx.moveTo(0, y + 0.5);
-      this.ctx.lineTo(CANVAS.width, y + 0.5);
+      this.ctx.lineTo(this.canvas.width, y + 0.5);
     }
     this.ctx.stroke();
   }
@@ -230,8 +230,8 @@ export class Renderer {
     ctx.font = 'bold 24px system-ui, sans-serif';
     ctx.textAlign = 'center';
     const n = players.length;
-    const spacing = Math.min(120, (CANVAS.width - 120) / n);
-    const startX = CANVAS.width / 2 - ((n - 1) * spacing) / 2;
+    const spacing = Math.min(120, (this.canvas.width - 120) / n);
+    const startX = this.canvas.width / 2 - ((n - 1) * spacing) / 2;
     for (let i = 0; i < n; i++) {
       const p = players[i];
       ctx.shadowColor = p.glow;
@@ -242,14 +242,14 @@ export class Renderer {
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.textDim;
     ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText(`first to ${target}`, CANVAS.width / 2, 56);
+    ctx.fillText(`first to ${target}`, this.canvas.width / 2, 56);
     const min = Math.floor(matchTime / 60);
     const sec = Math.floor(matchTime % 60);
     const timer = `${min}:${String(sec).padStart(2, '0')}`;
     const push = (pushBonusTenths / 10).toFixed(1);
     const mine = (minePenaltyTenths / 10).toFixed(1);
     ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText(`${timer}   push +${push}   mine -${mine}`, CANVAS.width / 2, 74);
+    ctx.fillText(`${timer}   push +${push}   mine -${mine}`, this.canvas.width / 2, 74);
     ctx.restore();
   }
 
@@ -257,15 +257,15 @@ export class Renderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${0.55 * alpha})`;
-    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.fillStyle = COLORS.textBright;
     ctx.textAlign = 'center';
     ctx.font = 'bold 64px system-ui, sans-serif';
-    ctx.fillText(line1, CANVAS.width / 2, CANVAS.height / 2);
+    ctx.fillText(line1, this.canvas.width / 2, this.canvas.height / 2);
     if (line2) {
       ctx.font = '20px system-ui, sans-serif';
       ctx.fillStyle = COLORS.textDim;
-      ctx.fillText(line2, CANVAS.width / 2, CANVAS.height / 2 + 40);
+      ctx.fillText(line2, this.canvas.width / 2, this.canvas.height / 2 + 40);
     }
     ctx.restore();
   }

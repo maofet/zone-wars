@@ -1,6 +1,7 @@
 import {
-  CANVAS, ZONES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
+  ZONES, STARTS, PLAYER, SCORING, COUNTDOWN_SECONDS, KEYS, ZONE_EJECT_TIME,
   MINE, POWERUP, RANDOM_BOXES, LOSE_SCORE_TENTHS, ZONE_COLORS, computeZonePositions,
+  MAP_SIZES, ENTITY_SCALING,
 } from './config.js';
 import { Player } from './entities/player.js';
 import { Box } from './entities/box.js';
@@ -29,9 +30,14 @@ export class Game {
     this.audio = audio;
     this.input = input;
     this.playerCount = playerCount;
+    this.canvasSize = MAP_SIZES[playerCount] || MAP_SIZES[2];
+    this.entityScaling = ENTITY_SCALING[playerCount] || ENTITY_SCALING[2];
+    // Resize the canvas DOM element to match player count
+    this.renderer.canvas.width = this.canvasSize.width;
+    this.renderer.canvas.height = this.canvasSize.height;
 
     const zoneRadius = ZONES.red.radius;
-    const positions = computeZonePositions(playerCount, CANVAS.width, CANVAS.height, zoneRadius);
+    const positions = computeZonePositions(playerCount, this.canvasSize.width, this.canvasSize.height, zoneRadius);
     this.zones = positions.map((pos, i) => new Zone(
       { x: pos.x, y: pos.y, radius: zoneRadius, color: ZONE_COLORS[i].color, glow: ZONE_COLORS[i].glow },
       ZONE_COLORS[i].name,
@@ -119,9 +125,10 @@ export class Game {
   }
 
   _generateRandomBoxes() {
-    const { cellSize, count, zonePadding, startPadding } = RANDOM_BOXES;
-    const cols = Math.floor(CANVAS.width / cellSize);
-    const rows = Math.floor(CANVAS.height / cellSize);
+    const { cellSize, zonePadding, startPadding } = RANDOM_BOXES;
+    const count = this.entityScaling.boxes;
+    const cols = Math.floor(this.canvasSize.width / cellSize);
+    const rows = Math.floor(this.canvasSize.height / cellSize);
     const startPositions = this.playerCount === 2
       ? [STARTS.p1, STARTS.p2]
       : this.zones.map(z => ({ x: z.x, y: z.y }));
@@ -272,7 +279,7 @@ export class Game {
       const ty = s.fromY + (s.toY - s.fromY) * t;
       const old = { x: player.x, y: player.y };
       let next = resolveCircleVsBoxes(old, { x: tx, y: ty }, player.radius, this.boxes);
-      next = clampToBounds(next, player.radius, { w: CANVAS.width, h: CANVAS.height });
+      next = clampToBounds(next, player.radius, { w: this.canvasSize.width, h: this.canvasSize.height });
       for (const o of others) next = resolveCircleVsCircle(old, next, player.radius, o, o.radius);
       player.x = next.x;
       player.y = next.y;
@@ -293,7 +300,7 @@ export class Game {
       y: player.y + v.y * PLAYER.speed * speedMul * dt,
     };
     let next = resolveCircleVsBoxes(old, desired, player.radius, this.boxes);
-    next = clampToBounds(next, player.radius, { w: CANVAS.width, h: CANVAS.height });
+    next = clampToBounds(next, player.radius, { w: this.canvasSize.width, h: this.canvasSize.height });
     for (const o of others) next = resolveCircleVsCircle(old, next, player.radius, o, o.radius);
     player.x = next.x;
     player.y = next.y;
@@ -364,8 +371,8 @@ export class Game {
 
   _findOpenPosition(radius, minPlayerDistance, avoidZones = false) {
     for (let attempt = 0; attempt < 50; attempt++) {
-      const x = radius + Math.random() * (CANVAS.width - radius * 2);
-      const y = radius + Math.random() * (CANVAS.height - radius * 2);
+      const x = radius + Math.random() * (this.canvasSize.width - radius * 2);
+      const y = radius + Math.random() * (this.canvasSize.height - radius * 2);
       let onBox = false;
       for (const box of this.boxes) {
         if (x + radius > box.x && x - radius < box.x + box.w &&
@@ -406,8 +413,8 @@ export class Game {
     this.mineSpawnTimer += dt;
     if (this.mineSpawnTimer >= MINE.spawnInterval) {
       this.mineSpawnTimer -= MINE.spawnInterval;
-      const slots = Math.max(0, MINE.maxOnMap - this.mines.length);
-      const toSpawn = Math.min(MINE.perSpawn, slots);
+      const slots = Math.max(0, this.entityScaling.minesMax - this.mines.length);
+      const toSpawn = Math.min(this.entityScaling.minesPerSpawn, slots);
       for (let i = 0; i < toSpawn; i++) {
         const pos = this._findOpenPosition(MINE.radius, 60, true);
         if (pos) this.mines.push({ x: pos.x, y: pos.y, age: 0 });
