@@ -224,7 +224,7 @@ export class Renderer {
     }
   }
 
-  drawHUD(players, target, matchTime = 0, pushBonusTenths = 10, minePenaltyTenths = 10) {
+  drawHUD(players, target, matchTime = 0, pushBonusTenths = 10, minePenaltyTenths = 10, matchDurationMinutes = 5) {
     const ctx = this.ctx;
     ctx.save();
     ctx.font = 'bold 24px system-ui, sans-serif';
@@ -243,9 +243,17 @@ export class Renderer {
     ctx.fillStyle = COLORS.textDim;
     ctx.font = '14px system-ui, sans-serif';
     ctx.fillText(`first to ${target}`, this.canvas.width / 2, 56);
-    const min = Math.floor(matchTime / 60);
-    const sec = Math.floor(matchTime % 60);
-    const timer = `${min}:${String(sec).padStart(2, '0')}`;
+    let timer;
+    if (matchDurationMinutes > 0) {
+      const remaining = Math.max(0, matchDurationMinutes * 60 - matchTime);
+      const min = Math.floor(remaining / 60);
+      const sec = Math.floor(remaining % 60);
+      timer = `${min}:${String(sec).padStart(2, '0')} left`;
+    } else {
+      const min = Math.floor(matchTime / 60);
+      const sec = Math.floor(matchTime % 60);
+      timer = `${min}:${String(sec).padStart(2, '0')}`;
+    }
     const push = (pushBonusTenths / 10).toFixed(1);
     const mine = (minePenaltyTenths / 10).toFixed(1);
     ctx.font = '12px system-ui, sans-serif';
