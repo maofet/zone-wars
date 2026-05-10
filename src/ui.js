@@ -1,4 +1,4 @@
-import { COLORS, SCORING, STORAGE_KEY } from './config.js';
+import { COLORS, SCORING, STORAGE_KEY, MATCH_DURATION_OPTIONS, DEFAULT_MATCH_DURATION } from './config.js';
 
 const TARGET_OPTIONS = [50, 100, 200];
 const PUSH_MAX_OPTIONS = [3, 5, 7, 10];
@@ -24,6 +24,7 @@ export class UI {
         muted: !!obj.muted,
         pushMax: PUSH_MAX_OPTIONS.includes(obj.pushMax) ? obj.pushMax : DEFAULT_PUSH_MAX,
         mineMax: MINE_MAX_OPTIONS.includes(obj.mineMax) ? obj.mineMax : DEFAULT_MINE_MAX,
+        matchDuration: MATCH_DURATION_OPTIONS.includes(obj.matchDuration) ? obj.matchDuration : DEFAULT_MATCH_DURATION,
       };
     } catch {
       return {
@@ -31,6 +32,7 @@ export class UI {
         muted: false,
         pushMax: DEFAULT_PUSH_MAX,
         mineMax: DEFAULT_MINE_MAX,
+        matchDuration: DEFAULT_MATCH_DURATION,
       };
     }
   }
@@ -89,11 +91,15 @@ export class UI {
     ctx.font = 'bold 48px system-ui, sans-serif';
     ctx.fillText('SETTINGS', cw / 2, 100);
 
+    const durationLabel = this.settings.matchDuration === 0
+      ? 'Off (no timer)'
+      : `${this.settings.matchDuration} min`;
     const rows = [
       `Target score: ${this.settings.targetScore}  (Left/Right to change)`,
       `Sound: ${this.settings.muted ? 'OFF' : 'ON'}  (Enter to toggle)`,
       `Push max: +${this.settings.pushMax}.0  (Left/Right to change)`,
       `Mine max: -${this.settings.mineMax}.0  (Left/Right to change)`,
+      `Match duration: ${durationLabel}  (Left/Right to change)`,
       'Back',
     ];
     rows.forEach((row, i) => {
@@ -199,6 +205,13 @@ export class UI {
     const idx = MINE_MAX_OPTIONS.indexOf(this.settings.mineMax);
     const next = (idx + dir + MINE_MAX_OPTIONS.length) % MINE_MAX_OPTIONS.length;
     this.settings.mineMax = MINE_MAX_OPTIONS[next];
+    this.saveSettings();
+  }
+
+  cycleMatchDuration(dir) {
+    const idx = MATCH_DURATION_OPTIONS.indexOf(this.settings.matchDuration);
+    const next = (idx + dir + MATCH_DURATION_OPTIONS.length) % MATCH_DURATION_OPTIONS.length;
+    this.settings.matchDuration = MATCH_DURATION_OPTIONS[next];
     this.saveSettings();
   }
 

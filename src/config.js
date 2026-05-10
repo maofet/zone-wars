@@ -65,6 +65,10 @@ export const MINE = {
 // Score below this (in tenths) makes the player lose. -100 = -10.0 displayed.
 export const LOSE_SCORE_TENTHS = -100;
 
+// Match duration options in minutes. 0 = no timer (play to score target only).
+export const MATCH_DURATION_OPTIONS = [0, 1, 3, 5, 10];
+export const DEFAULT_MATCH_DURATION = 5;
+
 export const POWERUP = {
   spawnInterval: 20.0,
   radius: 14,
