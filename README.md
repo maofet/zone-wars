@@ -1,18 +1,29 @@
 # Zone Wars
 
-Local 2-player browser game. Two heroes on one keyboard battle for zone control.
+Browser game for 2-6 players - local or online. Heroes battle for zone control.
 
-## Run
+## Play online
 
-The game uses ES modules, which Chrome blocks when opened directly via `file://`. Serve over HTTP instead:
+The game is hosted at **https://maofet.github.io/zone-wars/**
+
+1. Open the URL above.
+2. Click **Online** -> **Host Game** -> pick player count (2-6) -> share the 6-character room code with friends (Telegram, WhatsApp, etc).
+3. Friends open the same URL, click **Online** -> **Join Game** -> enter the code.
+4. When everyone is connected, host presses **Enter** to start the match.
+5. Each player uses **WASD** to move, **Left Shift** to push (in their own browser).
+6. Disconnect = match ends for everyone.
+
+Up to **6 players** per room. The arena and entity counts scale with player count.
+
+## Run locally (for development)
+
+The game uses ES modules - serve over HTTP:
 
 ```
 npm run serve
 ```
 
 Then open http://localhost:8000 in any modern browser.
-
-(Safari and Firefox can also open `index.html` directly via file://, but Chrome cannot.)
 
 ## Controls
 

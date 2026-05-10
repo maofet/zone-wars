@@ -948,8 +948,22 @@ export class Game {
   }
 
   _updateGameOver() {
-    if (this.input.pressed.has('Enter')) this.startMatch();
-    else if (this.input.pressed.has('Escape')) this.state = STATE.MENU;
+    if (this.input.pressed.has('Enter')) {
+      if (this.mode === 'host') {
+        this._startOnlineHostMatch();
+      } else if (this.mode === 'joiner') {
+        // Joiner cannot restart - only host can initiate a new match.
+        // Do nothing on Enter; Esc still returns to menu.
+      } else {
+        this.startMatch();
+      }
+    } else if (this.input.pressed.has('Escape')) {
+      if (this.mode !== 'local') {
+        this._endRoomAndReturnToMenu();
+      } else {
+        this.state = STATE.MENU;
+      }
+    }
   }
 
   // -------- render --------
@@ -983,9 +997,7 @@ export class Game {
     } else if (this.state === STATE.PAUSED) {
       this.ui.drawPaused();
     } else if (this.state === STATE.GAME_OVER) {
-      const w = this.winner;
-      const name = w.id.toUpperCase();
-      this.ui.drawGameOver(w.color, name, this.players[0].score, this.players[1] ? this.players[1].score : 0);
+      this.ui.drawGameOver(this.winner, this.players);
     }
   }
 }

@@ -145,26 +145,35 @@ export class UI {
     ctx.restore();
   }
 
-  drawGameOver(winnerColor, winnerName, p1Score, p2Score) {
+  drawGameOver(winner, players) {
     const ctx = this.renderer.ctx;
     const cw = this.renderer.canvas.width;
     const ch = this.renderer.canvas.height;
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(0, 0, cw, ch);
-    ctx.fillStyle = winnerColor;
-    ctx.shadowColor = winnerColor;
+    // winner banner
+    ctx.fillStyle = winner.color;
+    ctx.shadowColor = winner.color;
     ctx.shadowBlur = 20;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 72px system-ui, sans-serif';
-    ctx.fillText(`${winnerName} WINS!`, cw / 2, ch / 2 - 50);
+    ctx.font = 'bold 64px system-ui, sans-serif';
+    ctx.fillText(`${winner.id.toUpperCase()} WINS!`, cw / 2, 130);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = COLORS.textBright;
-    ctx.font = '32px system-ui, sans-serif';
-    ctx.fillText(`${(p1Score / 10).toFixed(1)} : ${(p2Score / 10).toFixed(1)}`, cw / 2, ch / 2 + 10);
-    ctx.font = '20px system-ui, sans-serif';
+    // scoreboard - all players sorted by score descending
+    const sorted = [...players].sort((a, b) => b.score - a.score);
+    ctx.font = 'bold 26px system-ui, sans-serif';
+    sorted.forEach((p, i) => {
+      const y = 200 + i * 40;
+      ctx.fillStyle = p.alive ? p.color : '#666688';
+      ctx.shadowColor = p.alive ? p.glow : 'transparent';
+      ctx.shadowBlur = p.alive ? 8 : 0;
+      ctx.fillText(`${p.id.toUpperCase()}   ${(p.score / 10).toFixed(1)}`, cw / 2, y);
+    });
+    ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.textDim;
-    ctx.fillText('Enter = Restart    Esc = Main Menu', cw / 2, ch / 2 + 90);
+    ctx.font = '20px system-ui, sans-serif';
+    ctx.fillText('Enter = Restart    Esc = Main Menu', cw / 2, ch - 60);
     ctx.restore();
   }
 
