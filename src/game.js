@@ -10,9 +10,15 @@ import {
   clampToBounds, resolveCircleVsBoxes, resolveCircleVsCircle,
   detectPushTarget, computePushTarget,
 } from './physics.js';
+import { generateRoomCode } from './net.js';
 
 const STATE = {
   MENU: 'menu',
+  ONLINE_MENU: 'online_menu',
+  ONLINE_HOST_SETUP: 'online_host_setup',
+  ONLINE_HOST_LOBBY: 'online_host_lobby',
+  ONLINE_JOIN_INPUT: 'online_join_input',
+  ONLINE_JOIN_WAITING: 'online_join_waiting',
   SETTINGS: 'settings',
   HOW_TO_PLAY: 'how_to_play',
   COUNTDOWN: 'countdown',
@@ -21,7 +27,7 @@ const STATE = {
   GAME_OVER: 'game_over',
 };
 
-const MENU_ITEMS = ['Start Game', 'Settings', 'How to Play'];
+const MENU_ITEMS = ['Local 2-Player', 'Online', 'Settings', 'How to Play'];
 
 export class Game {
   constructor(renderer, ui, audio, input, playerCount = 2) {
@@ -162,13 +168,18 @@ export class Game {
 
   update(dt) {
     switch (this.state) {
-      case STATE.MENU:        return this._updateMenu();
-      case STATE.SETTINGS:    return this._updateSettings();
-      case STATE.HOW_TO_PLAY: return this._updateHowToPlay();
-      case STATE.COUNTDOWN:   return this._updateCountdown(dt);
-      case STATE.PLAYING:     return this._updatePlaying(dt);
-      case STATE.PAUSED:      return this._updatePaused();
-      case STATE.GAME_OVER:   return this._updateGameOver();
+      case STATE.MENU:                return this._updateMenu();
+      case STATE.ONLINE_MENU:         return this._updateOnlineMenu();
+      case STATE.ONLINE_HOST_SETUP:   return this._updateOnlineHostSetup();
+      case STATE.ONLINE_HOST_LOBBY:   return this._updateOnlineHostLobby();
+      case STATE.ONLINE_JOIN_INPUT:   return this._updateOnlineJoinInput();
+      case STATE.ONLINE_JOIN_WAITING: return this._updateOnlineJoinWaiting();
+      case STATE.SETTINGS:            return this._updateSettings();
+      case STATE.HOW_TO_PLAY:         return this._updateHowToPlay();
+      case STATE.COUNTDOWN:           return this._updateCountdown(dt);
+      case STATE.PLAYING:             return this._updatePlaying(dt);
+      case STATE.PAUSED:              return this._updatePaused();
+      case STATE.GAME_OVER:           return this._updateGameOver();
     }
   }
 
@@ -181,9 +192,89 @@ export class Game {
     }
     if (this.input.pressed.has('Enter') || this.input.pressed.has('Space')) {
       const choice = MENU_ITEMS[this.ui.menuSelection];
-      if (choice === 'Start Game') this.startMatch();
+      if (choice === 'Local 2-Player') this.startMatch();
+      else if (choice === 'Online') this.state = STATE.ONLINE_MENU;
       else if (choice === 'Settings') this.state = STATE.SETTINGS;
       else if (choice === 'How to Play') this.state = STATE.HOW_TO_PLAY;
+    }
+  }
+
+  _updateOnlineMenu() {
+    const items = ['Host Game', 'Join Game', 'Back'];
+    if (!this.ui.onlineMenuSelection) this.ui.onlineMenuSelection = 0;
+    if (this.input.pressed.has('ArrowUp')) {
+      this.ui.onlineMenuSelection = (this.ui.onlineMenuSelection - 1 + items.length) % items.length;
+    }
+    if (this.input.pressed.has('ArrowDown')) {
+      this.ui.onlineMenuSelection = (this.ui.onlineMenuSelection + 1) % items.length;
+    }
+    if (this.input.pressed.has('Enter')) {
+      const choice = items[this.ui.onlineMenuSelection];
+      if (choice === 'Host Game') {
+        this.ui.hostPlayerCount = this.ui.hostPlayerCount || 2;
+        this.state = STATE.ONLINE_HOST_SETUP;
+      } else if (choice === 'Join Game') {
+        this.ui.joinCodeInput = '';
+        this.ui.joinError = null;
+        this.state = STATE.ONLINE_JOIN_INPUT;
+      } else if (choice === 'Back') {
+        this.state = STATE.MENU;
+      }
+    }
+    if (this.input.pressed.has('Escape')) this.state = STATE.MENU;
+  }
+
+  _updateOnlineHostSetup() {
+    if (this.input.pressed.has('ArrowLeft')) {
+      this.ui.hostPlayerCount = Math.max(2, this.ui.hostPlayerCount - 1);
+    }
+    if (this.input.pressed.has('ArrowRight')) {
+      this.ui.hostPlayerCount = Math.min(6, this.ui.hostPlayerCount + 1);
+    }
+    if (this.input.pressed.has('Enter')) {
+      this.ui.hostRoomCode = generateRoomCode();
+      this.ui.hostConnectedCount = 1; // host counts as 1
+      this.state = STATE.ONLINE_HOST_LOBBY;
+    }
+    if (this.input.pressed.has('Escape')) this.state = STATE.ONLINE_MENU;
+  }
+
+  _updateOnlineHostLobby() {
+    if (this.input.pressed.has('Enter') && this.ui.hostConnectedCount >= 2) {
+      this.state = STATE.MENU;
+      this.ui.hostRoomCode = null;
+    }
+    if (this.input.pressed.has('Escape')) {
+      this.ui.hostRoomCode = null;
+      this.state = STATE.ONLINE_MENU;
+    }
+  }
+
+  _updateOnlineJoinInput() {
+    for (const code of this.input.pressed) {
+      if (code === 'Backspace') {
+        this.ui.joinCodeInput = this.ui.joinCodeInput.slice(0, -1);
+      } else if (code === 'Enter') {
+        if (this.ui.joinCodeInput.length === 6) {
+          this.ui.joinError = null;
+          this.state = STATE.ONLINE_JOIN_WAITING;
+        }
+      } else if (code === 'Escape') {
+        this.state = STATE.ONLINE_MENU;
+      } else if (this.ui.joinCodeInput.length < 6) {
+        let ch = null;
+        if (code.startsWith('Key')) ch = code.slice(3);
+        else if (code.startsWith('Digit')) ch = code.slice(5);
+        if (ch && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]$/.test(ch)) {
+          this.ui.joinCodeInput += ch;
+        }
+      }
+    }
+  }
+
+  _updateOnlineJoinWaiting() {
+    if (this.input.pressed.has('Escape')) {
+      this.state = STATE.ONLINE_MENU;
     }
   }
 
@@ -598,9 +689,14 @@ export class Game {
 
   render() {
     this.renderer.clear();
-    if (this.state === STATE.MENU)        return this.ui.drawMenu(MENU_ITEMS, this.ui.menuSelection);
-    if (this.state === STATE.SETTINGS)    return this.ui.drawSettings(this.ui.settingsSelection);
-    if (this.state === STATE.HOW_TO_PLAY) return this.ui.drawHowToPlay();
+    if (this.state === STATE.MENU)                return this.ui.drawMenu(MENU_ITEMS, this.ui.menuSelection);
+    if (this.state === STATE.ONLINE_MENU)         return this.ui.drawOnlineMenu(this.ui.onlineMenuSelection || 0);
+    if (this.state === STATE.ONLINE_HOST_SETUP)   return this.ui.drawHostSetup(this.ui.hostPlayerCount || 2);
+    if (this.state === STATE.ONLINE_HOST_LOBBY)   return this.ui.drawHostLobby(this.ui.hostRoomCode, this.ui.hostConnectedCount, this.ui.hostPlayerCount);
+    if (this.state === STATE.ONLINE_JOIN_INPUT)   return this.ui.drawJoinInput(this.ui.joinCodeInput, this.ui.joinError);
+    if (this.state === STATE.ONLINE_JOIN_WAITING) return this.ui.drawJoinWaiting();
+    if (this.state === STATE.SETTINGS)            return this.ui.drawSettings(this.ui.settingsSelection);
+    if (this.state === STATE.HOW_TO_PLAY)         return this.ui.drawHowToPlay();
 
     this.renderer.drawGrid();
     for (const z of this.zones) this.renderer.drawZone(z);

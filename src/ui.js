@@ -190,4 +190,156 @@ export class UI {
     this.settings.muted = !this.settings.muted;
     this.saveSettings();
   }
+
+  drawOnlineMenu(selectedIndex) {
+    const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = COLORS.textBright;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 56px system-ui, sans-serif';
+    ctx.shadowColor = '#30b0ff';
+    ctx.shadowBlur = 18;
+    ctx.fillText('ONLINE', cw / 2, 130);
+    ctx.shadowBlur = 0;
+
+    const items = ['Host Game', 'Join Game', 'Back'];
+    items.forEach((item, i) => {
+      const y = 240 + i * 60;
+      const selected = i === selectedIndex;
+      ctx.font = selected ? 'bold 28px system-ui, sans-serif' : '24px system-ui, sans-serif';
+      ctx.fillStyle = selected ? '#ffffff' : COLORS.textDim;
+      if (selected) { ctx.shadowColor = '#30b0ff'; ctx.shadowBlur = 12; }
+      else { ctx.shadowBlur = 0; }
+      ctx.fillText(item, cw / 2, y);
+    });
+    ctx.restore();
+  }
+
+  drawHostSetup(playerCount) {
+    const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = COLORS.textBright;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 48px system-ui, sans-serif';
+    ctx.fillText('HOST GAME', cw / 2, 120);
+    ctx.font = '22px system-ui, sans-serif';
+    ctx.fillStyle = COLORS.textDim;
+    ctx.fillText('How many players?', cw / 2, 200);
+    ctx.font = 'bold 96px system-ui, sans-serif';
+    ctx.shadowColor = '#30b0ff';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(String(playerCount), cw / 2, 320);
+    ctx.shadowBlur = 0;
+    ctx.font = '16px system-ui, sans-serif';
+    ctx.fillStyle = COLORS.textDim;
+    ctx.fillText('Left/Right to change (2-6)', cw / 2, 370);
+    ctx.fillText('Enter to create room   |   Esc to go back', cw / 2, 400);
+    ctx.restore();
+  }
+
+  drawHostLobby(code, connectedCount, targetCount) {
+    const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = COLORS.textBright;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px system-ui, sans-serif';
+    ctx.fillText('SHARE THIS CODE WITH FRIENDS', cw / 2, 120);
+    ctx.font = 'bold 96px monospace';
+    ctx.shadowColor = '#30b0ff';
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(code || '------', cw / 2, 240);
+    ctx.shadowBlur = 0;
+    ctx.font = '24px system-ui, sans-serif';
+    ctx.fillStyle = COLORS.textDim;
+    ctx.fillText(`Players: ${connectedCount} / ${targetCount} connected`, cw / 2, 320);
+    if (connectedCount >= 2) {
+      ctx.fillStyle = '#40d060';
+      ctx.font = 'bold 22px system-ui, sans-serif';
+      ctx.fillText('Press Enter to start the match', cw / 2, 380);
+    } else {
+      ctx.fillStyle = COLORS.textDim;
+      ctx.font = '18px system-ui, sans-serif';
+      ctx.fillText('Waiting for at least 1 friend to join...', cw / 2, 380);
+    }
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillStyle = COLORS.textDim;
+    ctx.fillText('Esc to cancel', cw / 2, ch - 40);
+    ctx.restore();
+  }
+
+  drawJoinInput(code, error) {
+    const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = COLORS.textBright;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 48px system-ui, sans-serif';
+    ctx.fillText('JOIN GAME', cw / 2, 120);
+    ctx.font = '22px system-ui, sans-serif';
+    ctx.fillStyle = COLORS.textDim;
+    ctx.fillText('Enter the 6-character room code', cw / 2, 180);
+    // Render input: 6 boxes
+    const slotW = 56;
+    const totalW = slotW * 6 + 8 * 5;
+    const baseX = cw / 2 - totalW / 2;
+    for (let i = 0; i < 6; i++) {
+      const sx = baseX + i * (slotW + 8);
+      ctx.strokeStyle = i < code.length ? '#30b0ff' : '#3a3a5a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sx, 230, slotW, 64);
+      if (i < code.length) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px monospace';
+        ctx.fillText(code[i], sx + slotW / 2, 276);
+      }
+    }
+    if (error) {
+      ctx.fillStyle = '#ff5070';
+      ctx.font = '16px system-ui, sans-serif';
+      ctx.fillText(error, cw / 2, 340);
+    }
+    ctx.fillStyle = COLORS.textDim;
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText('Type letters/digits  |  Backspace to delete  |  Enter to connect  |  Esc to cancel', cw / 2, ch - 40);
+    ctx.restore();
+  }
+
+  drawJoinWaiting(message) {
+    const ctx = this.renderer.ctx;
+    const cw = this.renderer.canvas.width;
+    const ch = this.renderer.canvas.height;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = COLORS.textBright;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 48px system-ui, sans-serif';
+    ctx.fillText('CONNECTING...', cw / 2, ch / 2);
+    if (message) {
+      ctx.font = '20px system-ui, sans-serif';
+      ctx.fillStyle = COLORS.textDim;
+      ctx.fillText(message, cw / 2, ch / 2 + 50);
+    }
+    ctx.fillStyle = COLORS.textDim;
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText('Esc to cancel', cw / 2, ch - 40);
+    ctx.restore();
+  }
 }
